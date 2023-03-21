@@ -28,3 +28,23 @@ jobs:
         run: ruff check .
       - name: Test
         run: pytest
+  push-to-pypi:
+    name: Push Python Package to PyPI
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Build package
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade setuptools wheel
+          python setup.py sdist bdist_wheel
+      - name: Push package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1.8
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}

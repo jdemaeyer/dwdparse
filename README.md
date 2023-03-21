@@ -1,5 +1,8 @@
 # dwdparse
 
+[![Build Status](https://img.shields.io/github/actions/workflow/status/jdemaeyer/dwdparse/main.yml)](https://github.com/jdemaeyer/dwdparse/actions)
+[![PyPI Release](https://img.shields.io/pypi/v/dwdparse)](https://pypi.org/project/dwdparse/)
+
 ### Parsers for DWD's open weather data.
 
 The DWD ([Deutscher Wetterdienst](https://www.dwd.de/)), as Germany's

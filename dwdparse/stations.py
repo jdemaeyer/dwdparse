@@ -28,22 +28,22 @@ class StationIDConverter:
         self.parse_station_list(station_list)
 
     def parse_station_list(self, html):
-        self.dwd_to_wmo.clear()
-        self.wmo_to_dwd.clear()
-        mappings = 0
+        dwd_to_wmo = {}
+        wmo_to_dwd = {}
         for line in html.splitlines():
             if not line.startswith('<tr>') or not line.count('<td') == 11:
                 continue
             values = re.findall(r'<td[^>]*?>(.*?)</td>', line)
             if values[2] not in self.STATION_TYPES:
                 continue
-            mappings += 1
             dwd_id = values[1].zfill(5)
             wmo_id = values[3]
-            self.dwd_to_wmo[dwd_id] = wmo_id
-            self.wmo_to_dwd[wmo_id] = dwd_id
-        assert mappings, "Found no stations in station list"
-        logger.info("Parsed %d station ID mappings", mappings)
+            dwd_to_wmo[dwd_id] = wmo_id
+            wmo_to_dwd[wmo_id] = dwd_id
+        assert dwd_to_wmo, "Found no stations in station list"
+        self.dwd_to_wmo = dwd_to_wmo
+        self.wmo_to_dwd = wmo_to_dwd
+        logger.info("Parsed %d station ID mappings", len(dwd_to_wmo))
 
     def convert_to_wmo(self, dwd_id):
         return self.dwd_to_wmo.get(dwd_id)

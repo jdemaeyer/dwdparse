@@ -212,13 +212,18 @@ class SYNOPParser(Parser):
             if not f.read(1):
                 return
             f.seek(0)
-            message_blocks = json.load(f)['messages']
-        for block in message_blocks:
-            for message in block[-1]:
-                with suppress(SkipRecord):
-                    record = self.parse_message(message)
-                    self.sanitize_record(record)
-                    yield record
+            for block in self._get_message_blocks(f):
+                for message in block[-1]:
+                    with suppress(SkipRecord):
+                        record = self.parse_message(message)
+                        self.sanitize_record(record)
+                        yield record
+
+    def _get_message_blocks(self, f):
+        with suppress(ImportError):
+            import ijson
+            return ijson.items(f, 'messages.item', use_float=True)
+        return json.load(f)['messages']
 
     def parse_message(self, message):
         record = {

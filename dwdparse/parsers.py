@@ -539,19 +539,37 @@ class PrecipitationObservationsParser(ObservationsParser):
     def parse_reader(self, filename, reader, lat_lon_history):
         # XXX: WRTR is missing every third hour, we fill it up from the
         #      previous or next row where sensible
-        rows = list(reader)
-        for i, row in enumerate(rows):
-            if row['WRTR'] != '-999':
-                continue
-            elif row['RS_IND'].strip() == '0':
-                row['WRTR'] = '0'
-            elif i > 0 and rows[i-1]['RS_IND'].strip() == '1':
-                row['WRTR'] = rows[i-1]['WRTR']
-            elif i + 1 < len(rows) and rows[i+1]['RS_IND'].strip() == '1':
-                row['WRTR'] = rows[i+1]['WRTR']
-            else:
-                row['WRTR'] = '9'
-        yield from super().parse_reader(filename, rows, lat_lon_history)
+        return super().parse_reader(
+            filename,
+            self._fill_rows(reader),
+            lat_lon_history,
+        )
+
+    def _fill_rows(self, reader):
+        # There's probably a smarter way to do this with itertools.tee()...
+        last_row = next(reader)
+        self._fill_row(last_row, None, None)
+        yield last_row
+        row = next(reader)
+        for next_row in reader:
+            self._fill_row(row, last_row, next_row)
+            yield row
+            last_row = row
+            row = next_row
+        self._fill_row(row, last_row, None)
+        yield row
+
+    def _fill_row(self, row, last_row, next_row):
+        if row['WRTR'] != '-999':
+            return
+        elif row['RS_IND'].strip() == '0':
+            row['WRTR'] = '0'
+        elif last_row and last_row['RS_IND'].strip() == '1':
+            row['WRTR'] = last_row['WRTR']
+        elif next_row and next_row['RS_IND'].strip() == '1':
+            row['WRTR'] = next_row['WRTR']
+        else:
+            row['WRTR'] = '9'
 
 
 class VisibilityObservationsParser(ObservationsParser):

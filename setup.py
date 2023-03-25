@@ -25,6 +25,11 @@ setup(
         "Operating System :: OS Independent",
     ],
     python_requires='>=3.8',
+    extras_require={
+        'lean': [
+            'ijson',
+        ],
+    },
     entry_points={
         'console_scripts': ['dwdparse = dwdparse.cli:main'],
     },

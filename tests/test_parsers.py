@@ -275,8 +275,17 @@ def test_precipitation_observations_parser(data_dir):
     _test_parser(
         PrecipitationObservationsParser,
         data_dir / 'observations_recent_RR_akt.zip',
-        {'timestamp': '2018-09-22 20:00', 'precipitation': 0.0},
-        {'timestamp': '2020-02-11 02:00', 'precipitation': 0.3},
+        {
+            'timestamp': '2018-09-22 20:00',
+            'precipitation': 0.0,
+            'condition': 'dry',
+        },
+        {
+            'timestamp': '2020-02-11 02:00',
+            'precipitation': 0.3,
+            # This value should be filled up from the previous row
+            'condition': 'rain',
+        },
     )
 
 

@@ -289,6 +289,29 @@ def test_precipitation_observations_parser(data_dir):
     )
 
 
+def test_precipitation_observations_parser_with_neighbors():
+    parser = PrecipitationObservationsParser()
+    assert list(parser.with_neighbors('')) == []
+    assert list(parser.with_neighbors('A')) == [(None, 'A', None)]
+    assert list(parser.with_neighbors('AB')) == [
+        (None, 'A', 'B'),
+        ('A', 'B', None),
+    ]
+    assert list(parser.with_neighbors('ABC')) == [
+        (None, 'A', 'B'),
+        ('A', 'B', 'C'),
+        ('B', 'C', None),
+    ]
+    assert list(parser.with_neighbors(iter('ABCDEF'))) == [
+        (None, 'A', 'B'),
+        ('A', 'B', 'C'),
+        ('B', 'C', 'D'),
+        ('C', 'D', 'E'),
+        ('D', 'E', 'F'),
+        ('E', 'F', None),
+    ]
+
+
 def test_visibility_observations_parser(data_dir):
     _test_parser(
         VisibilityObservationsParser,

@@ -2,6 +2,7 @@ import bz2
 import csv
 import datetime
 import io
+import itertools
 import json
 import logging
 import re
@@ -541,27 +542,25 @@ class PrecipitationObservationsParser(ObservationsParser):
         #      previous or next row where sensible
         return super().parse_reader(
             filename,
-            self._fill_rows(reader),
+            itertools.starmap(self.fill_wrtr, self.with_neighbors(reader)),
             lat_lon_history,
         )
 
-    def _fill_rows(self, reader):
-        # There's probably a smarter way to do this with itertools.tee()...
-        last_row = next(reader)
-        self._fill_row(last_row, None, None)
-        yield last_row
-        row = next(reader)
-        for next_row in reader:
-            self._fill_row(row, last_row, next_row)
-            yield row
-            last_row = row
-            row = next_row
-        self._fill_row(row, last_row, None)
-        yield row
+    def with_neighbors(self, it):
+        """
+        'ABCDEF' -> (None, 'A', 'B'), ('A', 'B', 'C'), ..., ('E', 'F', None)
+        """
+        a, b, c = itertools.tee(it, 3)
+        next(c, None)
+        return zip(
+            itertools.chain([None], a),
+            b,
+            itertools.chain(c, [None]),
+        )
 
-    def _fill_row(self, row, last_row, next_row):
+    def fill_wrtr(self, last_row, row, next_row):
         if row['WRTR'] != '-999':
-            return
+            pass
         elif row['RS_IND'].strip() == '0':
             row['WRTR'] = '0'
         elif last_row and last_row['RS_IND'].strip() == '1':
@@ -570,6 +569,7 @@ class PrecipitationObservationsParser(ObservationsParser):
             row['WRTR'] = next_row['WRTR']
         else:
             row['WRTR'] = '9'
+        return row
 
 
 class VisibilityObservationsParser(ObservationsParser):

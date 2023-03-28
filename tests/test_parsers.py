@@ -4,7 +4,7 @@ from dwdparse.parsers import (
     CloudCoverObservationsParser,
     CurrentObservationsParser,
     DewPointObservationsParser,
-    MOSMIXSParser,
+    MOSMIXParser,
     PrecipitationObservationsParser,
     PressureObservationsParser,
     SunshineObservationsParser,
@@ -23,7 +23,7 @@ utc = datetime.timezone.utc
 
 
 def test_mosmix_s_parser(data_dir):
-    records = list(MOSMIXSParser().parse(data_dir / 'MOSMIX_S.kmz'))
+    records = list(MOSMIXParser().parse(data_dir / 'MOSMIX_S.kmz'))
     assert len(records) == 240
     assert records[0] == {
         'observation_type': 'forecast',
@@ -402,7 +402,7 @@ def test_get_parser():
         'stundenwerte_TD_01766.zip': DewPointObservationsParser,
         'stundenwerte_TU_00161_akt.zip': TemperatureObservationsParser,
         'stundenwerte_VV_00161_akt.zip': VisibilityObservationsParser,
-        'MOSMIX_S_LATEST_240.kmz': MOSMIXSParser,
+        'MOSMIX_S_LATEST_240.kmz': MOSMIXParser,
         'K611_-BEOB.csv': CurrentObservationsParser,
         synop_with_timestamp: SYNOPParser,
         synop_latest: None,

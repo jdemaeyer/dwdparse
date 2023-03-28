@@ -48,7 +48,7 @@ class Parser:
         return {}
 
 
-class MOSMIXSParser(Parser):
+class MOSMIXParser(Parser):
 
     ELEMENTS = {
         'DD': 'wind_direction',
@@ -713,7 +713,7 @@ class PressureObservationsParser(ObservationsParser):
 
 def get_parser(filename):
     parsers = {
-        r'MOSMIX_S_LATEST_240\.kmz$': MOSMIXSParser,
+        r'MOSMIX_(S|L)_LATEST(_240)?\.kmz$': MOSMIXParser,
         r'Z__C_EDZW_\d+_.*\.json\.bz2$': SYNOPParser,
         r'\w{5}-BEOB\.csv$': CurrentObservationsParser,
         'stundenwerte_FF_': WindObservationsParser,

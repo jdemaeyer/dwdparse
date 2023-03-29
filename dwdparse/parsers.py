@@ -56,6 +56,8 @@ class MOSMIXParser(Parser):
         'FX1': 'wind_gust_speed',
         'N': 'cloud_cover',
         'PPPP': 'pressure_msl',
+        'R101': 'precipitation_probability',
+        'R602': 'precipitation_probability_6h',
         'RR1c': 'precipitation',
         'SunD1': 'sunshine',
         'Td': 'dew_point',

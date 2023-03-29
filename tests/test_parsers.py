@@ -38,6 +38,7 @@ def test_mosmix_s_parser(data_dir):
         'cloud_cover': 93.0,
         'dew_point': 257.25,
         'precipitation': 0.1,
+        'precipitation_probability_6h': None,
         'pressure_msl': 99000.0,
         'sunshine': None,
         'temperature': 260.45,
@@ -60,6 +61,7 @@ def test_mosmix_s_parser(data_dir):
         'cloud_cover': 76.,
         'dew_point': 265.35,
         'precipitation': None,
+        'precipitation_probability_6h': None,
         'pressure_msl': 100630.0,
         'sunshine': None,
         'temperature': 267.15,
@@ -69,6 +71,7 @@ def test_mosmix_s_parser(data_dir):
         'wind_gust_speed': None,
         'condition': 'dry',
     }
+    assert records[2]['precipitation_probability_6h'] == 49
 
 
 def test_synop_parser(data_dir):

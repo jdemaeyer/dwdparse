@@ -19,12 +19,15 @@ from dwdparse.units import (
     current_observations_weather_code_to_condition,
     eighths_to_percent,
     hpa_to_pa,
+    j_per_cm2_to_j_per_m2,
+    kj_per_m2_to_j_per_m2,
     km_to_m,
     kmh_to_ms,
     minutes_to_seconds,
     synop_current_weather_code_to_condition,
     synop_form_of_precipitation_code_to_condition,
     synop_past_weather_code_to_condition,
+    w_per_m2_to_hourly_j_per_m2,
 )
 
 
@@ -58,6 +61,7 @@ class MOSMIXParser(Parser):
         'PPPP': 'pressure_msl',
         'R101': 'precipitation_probability',
         'R602': 'precipitation_probability_6h',
+        'Rad1h': 'solar',
         'RR1c': 'precipitation',
         'SunD1': 'sunshine',
         'Td': 'dew_point',
@@ -164,6 +168,9 @@ class MOSMIXParser(Parser):
         code = int(value.split('.')[0])
         return synop_current_weather_code_to_condition(code)
 
+    def parse_solar(self, value):
+        return kj_per_m2_to_j_per_m2(float(value))
+
     def sanitize_records(self, records):
         for r in records:
             if r['precipitation'] and r['precipitation'] < 0:
@@ -201,6 +208,7 @@ class SYNOPParser(Parser):
     time_period_field = 'timePeriod'
     time_periods = (-10, -30, -60)
     time_period_elements = {
+        'globalSolarRadiationIntegratedOverPeriodSpecified': 'solar',
         'windDirection': 'wind_direction',
         'windSpeed': 'wind_speed',
         'maximumWindGustDirection': 'wind_gust_direction',
@@ -253,7 +261,7 @@ class SYNOPParser(Parser):
                     if data[self.height_field] == self.height:
                         record[field] = value
                 elif field := self.time_period_elements.get(key):
-                    time_period = data[self.time_period_field]
+                    time_period = data.get(self.time_period_field, -10)
                     if time_period in self.time_periods:
                         if field == 'sunshine' and value:
                             value *= 60
@@ -306,6 +314,7 @@ class CurrentObservationsParser(Parser):
         'cloud_cover_total': 'cloud_cover',
         'dew_point_temperature_at_2_meter_above_ground': 'dew_point',
         'dry_bulb_temperature_at_2_meter_above_ground': 'temperature',
+        'global_radiation_last_hour': 'solar',
         'horizontal_visibility': 'visibility',
         'maximum_wind_speed_last_hour': 'wind_gust_speed',
         'mean_wind_direction_during_last_10 min_at_10_meters_above_ground': (
@@ -325,6 +334,7 @@ class CurrentObservationsParser(Parser):
         'condition': current_observations_weather_code_to_condition,
         'dew_point': celsius_to_kelvin,
         'pressure_msl': hpa_to_pa,
+        'solar': w_per_m2_to_hourly_j_per_m2,
         'sunshine': minutes_to_seconds,
         'temperature': celsius_to_kelvin,
         'visibility': km_to_m,
@@ -495,6 +505,65 @@ class ObservationsParser(Parser):
         return False
 
 
+class TenMinutesObservationsParser(ObservationsParser):
+
+    META_DATA_URL = None
+    TRIGGER_MINUTE = 0
+
+    def get_extra_urls(self, path):
+        with zipfile.ZipFile(path) as zf:
+            dwd_station_id = self.parse_station_id(zf)
+        return {
+            'meta_path': self.META_DATA_URL.format(
+                dwd_station_id=dwd_station_id,
+            ),
+        }
+
+    def parse_station_id(self, zf, **extra):
+        for filename in zf.namelist():
+            if (m := re.match(r'produkt_.*_(\d+)\.txt', filename)):
+                return m.group(1)
+        raise ValueError(f"Unable to parse station ID for {self.path}")
+
+    def parse_lat_lon_history(self, zf, dwd_station_id, **extra):
+        if 'meta_path' not in extra:
+            raise ValueError(
+                f"Must supply a `meta_path` keyword argument for "
+                f"{self.__class__.__name__}",
+            )
+        with zipfile.ZipFile(extra['meta_path']) as meta_zf:
+            return super().parse_lat_lon_history(meta_zf, dwd_station_id)
+
+    def parse_reader(self, filename, reader, lat_lon_history):
+        hour_values = []
+        for row in reader:
+            timestamp = datetime.datetime.strptime(
+                row['MESS_DATUM'],
+                '%Y%m%d%H%M',
+            ).replace(
+                tzinfo=datetime.timezone.utc,
+            )
+            if self.skip_timestamp(timestamp + datetime.timedelta(minutes=50)):
+                continue
+            # XXX: Station parameters are currently not supported for
+            #      10-minute parsers
+            hour_values.append(self.parse_elements(row, None, None, None))
+            if timestamp.minute == self.TRIGGER_MINUTE:
+                if self.TRIGGER_MINUTE > 30:
+                    # Likely triggered at :50, round to next full hour
+                    timestamp += datetime.timedelta(
+                        minutes=60 - self.TRIGGER_MINUTE,
+                    )
+                elif self.TRIGGER_MINUTE:
+                    timestamp = timestamp.replace(minute=0)
+                yield self._make_record(
+                    timestamp, hour_values, filename, lat_lon_history)
+                hour_values.clear()
+
+    def _make_record(self, timestamp, hour_values, filename, lat_lon_history):
+        raise NotImplementedError
+
+
 class CloudCoverObservationsParser(ObservationsParser):
 
     elements = {
@@ -598,7 +667,7 @@ class WindObservationsParser(ObservationsParser):
     }
 
 
-class WindGustsObservationsParser(ObservationsParser):
+class WindGustsObservationsParser(TenMinutesObservationsParser):
 
     META_DATA_URL = (
         'https://opendata.dwd.de/climate_environment/CDC/observations_germany/'
@@ -610,54 +679,10 @@ class WindGustsObservationsParser(ObservationsParser):
         'wind_gust_speed': 'FX_10',
     }
 
-    def get_extra_urls(self, path):
-        with zipfile.ZipFile(path) as zf:
-            dwd_station_id = self.parse_station_id(zf)
-        return {
-            'meta_path': self.META_DATA_URL.format(
-                dwd_station_id=dwd_station_id,
-            ),
-        }
-
-    def parse_station_id(self, zf, **extra):
-        for filename in zf.namelist():
-            if (m := re.match(r'produkt_.*_(\d+)\.txt', filename)):
-                return m.group(1)
-        raise ValueError(f"Unable to parse station ID for {self.path}")
-
-    def parse_lat_lon_history(self, zf, dwd_station_id, **extra):
-        if 'meta_path' not in extra:
-            raise ValueError(
-                "Must supply a `meta_path` keyword argument for "
-                "WindGustObservationsParser",
-            )
-        with zipfile.ZipFile(extra['meta_path']) as meta_zf:
-            return super().parse_lat_lon_history(meta_zf, dwd_station_id)
-
-    def parse_reader(self, filename, reader, lat_lon_history):
-        hour_values = []
-        for row in reader:
-            timestamp = datetime.datetime.strptime(
-                row['MESS_DATUM'],
-                '%Y%m%d%H%M',
-            ).replace(
-                tzinfo=datetime.timezone.utc,
-            )
-            if self.skip_timestamp(timestamp + datetime.timedelta(hours=1)):
-                continue
-            # Should this be refactored into a base class we will need to
-            # properly parse the station parameters and pass them
-            values = self.parse_elements(row, None, None, None)
-            if values['wind_gust_speed']:
-                hour_values.append(values)
-            if timestamp.minute == 0:
-                yield self._make_record(
-                    timestamp, hour_values, filename, lat_lon_history)
-                hour_values.clear()
-
     def _make_record(self, timestamp, hour_values, filename, lat_lon_history):
         lat, lon, height, station_name = self._station_params(
             timestamp, lat_lon_history)
+        hour_values = [x for x in hour_values if x['wind_gust_speed']]
         if hour_values:
             max_value = max(hour_values, key=lambda v: v['wind_gust_speed'])
             direction = max_value['wind_gust_direction']
@@ -713,6 +738,43 @@ class PressureObservationsParser(ObservationsParser):
         return elements
 
 
+class SolarRadiationObservationsParser(TenMinutesObservationsParser):
+
+    META_DATA_URL = (
+        'https://opendata.dwd.de/climate_environment/CDC/observations_germany/'
+        'climate/10_minutes/solar/meta_data/'
+        'Meta_Daten_zehn_min_sd_{dwd_station_id}.zip')
+
+    # It seems that the measurement rows contain the global irradiance for the
+    # NEXT ten minutes -- at least then the values align with
+    # "global_radiation_last_hour" from the current observations
+    TRIGGER_MINUTE = 50
+
+    elements = {
+        'solar': 'GS_10',
+    }
+    converters = {
+        'solar': j_per_cm2_to_j_per_m2,
+    }
+
+    def _make_record(self, timestamp, hour_values, filename, lat_lon_history):
+        lat, lon, height, station_name = self._station_params(
+            timestamp, lat_lon_history)
+        solar = None
+        for values in hour_values:
+            if values['solar'] is not None:
+                solar = (solar or 0) + values['solar']
+        return {
+            'source': f'Observations:Recent:{filename}',
+            'lat': lat,
+            'lon': lon,
+            'height': height,
+            'station_name': station_name,
+            'timestamp': timestamp,
+            'solar': solar,
+        }
+
+
 def get_parser(filename):
     parsers = {
         r'MOSMIX_(S|L)_LATEST(_240)?\.kmz$': MOSMIXParser,
@@ -727,6 +789,7 @@ def get_parser(filename):
         'stundenwerte_TU_': TemperatureObservationsParser,
         'stundenwerte_VV_': VisibilityObservationsParser,
         '10minutenwerte_extrema_wind_': WindGustsObservationsParser,
+        '10minutenwerte_SOLAR_': SolarRadiationObservationsParser,
     }
     for pattern, parser in parsers.items():
         if re.match(pattern, filename):

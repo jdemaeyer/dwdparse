@@ -7,9 +7,11 @@ from dwdparse.parsers import (
     MOSMIXParser,
     PrecipitationObservationsParser,
     PressureObservationsParser,
+    SolarRadiationObservationsParser,
     SunshineObservationsParser,
     SYNOPParser,
     TemperatureObservationsParser,
+    TenMinutesObservationsParser,
     VisibilityObservationsParser,
     WindGustsObservationsParser,
     WindObservationsParser,
@@ -22,56 +24,60 @@ from .utils import is_subset
 utc = datetime.timezone.utc
 
 
-def test_mosmix_s_parser(data_dir):
-    records = list(MOSMIXParser().parse(data_dir / 'MOSMIX_S.kmz'))
-    assert len(records) == 240
+def test_mosmix_parser(data_dir):
+    records = list(MOSMIXParser().parse(data_dir / 'MOSMIX_L_LATEST.kmz'))
+    assert len(records) == 247
     assert records[0] == {
         'observation_type': 'forecast',
-        'source': 'MOSMIX:2020-03-13T09:00:00.000Z',
-        'lat': 74.52,
-        'lon': 19.02,
-        'height': 16.,
+        'source': 'MOSMIX:2023-04-12T09:00:00.000Z',
+        'lat': 51.97,
+        'lon': 7.63,
+        'height': 60.,
         'dwd_station_id': 'XXX',
-        'wmo_station_id': '01028',
-        'station_name': 'BJORNOYA',
-        'timestamp': datetime.datetime(2020, 3, 13, 10, 0, tzinfo=utc),
-        'cloud_cover': 93.0,
-        'dew_point': 257.25,
-        'precipitation': 0.1,
+        'wmo_station_id': 'P0036',
+        'station_name': 'MUENSTER ZENTRUM',
+        'timestamp': datetime.datetime(2023, 4, 12, 10, 0, tzinfo=utc),
+        'cloud_cover': 100.0,
+        'dew_point': 279.05,
+        'precipitation': 1.2,
+        'precipitation_probability': 75.,
         'precipitation_probability_6h': None,
-        'pressure_msl': 99000.0,
-        'sunshine': None,
-        'temperature': 260.45,
-        'visibility': 1700.0,
-        'wind_direction': 330.0,
-        'wind_speed': 8.75,
-        'wind_gust_speed': None,
-        'condition': 'snow',
+        'pressure_msl': 99700.0,
+        'sunshine': 0.0,
+        'temperature': 282.75,
+        'visibility': 14900.0,
+        'wind_direction': 179.0,
+        'wind_speed': 5.14,
+        'wind_gust_speed': 9.26,
+        'condition': 'rain',
+        'solar': 510000.0,
     }
     assert records[-1] == {
         'observation_type': 'forecast',
-        'source': 'MOSMIX:2020-03-13T09:00:00.000Z',
-        'lat': 74.52,
-        'lon': 19.02,
-        'height': 16.,
+        'source': 'MOSMIX:2023-04-12T09:00:00.000Z',
+        'lat': 51.97,
+        'lon': 7.63,
+        'height': 60.,
         'dwd_station_id': 'XXX',
-        'wmo_station_id': '01028',
-        'station_name': 'BJORNOYA',
-        'timestamp': datetime.datetime(2020, 3, 23, 9, 0, tzinfo=utc),
-        'cloud_cover': 76.,
-        'dew_point': 265.35,
-        'precipitation': None,
+        'wmo_station_id': 'P0036',
+        'station_name': 'MUENSTER ZENTRUM',
+        'timestamp': datetime.datetime(2023, 4, 22, 16, 0, tzinfo=utc),
+        'cloud_cover': 58.,
+        'dew_point': 277.85,
+        'precipitation': 0.0,
+        'precipitation_probability': 9.0,
         'precipitation_probability_6h': None,
-        'pressure_msl': 100630.0,
-        'sunshine': None,
-        'temperature': 267.15,
-        'visibility': 11600.0,
-        'wind_direction': 49.0,
-        'wind_speed': 7.72,
-        'wind_gust_speed': None,
-        'condition': 'dry',
+        'pressure_msl': 101790.0,
+        'sunshine': 2100.0,
+        'temperature': 290.85,
+        'visibility': 24900.0,
+        'wind_direction': 35.0,
+        'wind_speed': 3.6,
+        'wind_gust_speed': 7.72,
+        'condition': None,
+        'solar': 1170000.0,
     }
-    assert records[2]['precipitation_probability_6h'] == 49
+    assert records[2]['precipitation_probability_6h'] == 85.0
 
 
 def test_synop_parser(data_dir):
@@ -125,7 +131,7 @@ def test_synop_parser(data_dir):
 def test_current_observation_parser(data_dir):
     records = list(
         CurrentObservationsParser().parse(
-            data_dir / 'observations_current.csv',
+            data_dir / '10315-BEOB.csv',
             10.1,
             20.2,
             30.3,
@@ -138,44 +144,46 @@ def test_current_observation_parser(data_dir):
         'lat': 10.1,
         'lon': 20.2,
         'height': 30.3,
-        'dwd_station_id': 'YYY',
-        'wmo_station_id': '01049',
+        'dwd_station_id': '01766',
+        'wmo_station_id': '10315',
         'station_name': 'Muenster',
-        'timestamp': datetime.datetime(2020, 4, 6, 8, 0, tzinfo=utc),
-        'cloud_cover': None,
-        'dew_point': 263.15,
-        'precipitation': 0,
-        'pressure_msl': 102310.,
-        'relative_humidity': 59.,
-        'sunshine': None,
-        'temperature': 270.05,
-        'visibility': None,
-        'wind_direction': 140,
-        'wind_speed': 3.9,
-        'wind_gust_speed': 5.8,
-        'condition': None,
+        'timestamp': datetime.datetime(2023, 4, 12, 11, 0, tzinfo=utc),
+        'cloud_cover': 100.0,
+        'dew_point': 281.45,
+        'precipitation': 2.1,
+        'pressure_msl': 99780,
+        'relative_humidity': 94.,
+        'sunshine': 0,
+        'temperature': 282.35,
+        'visibility': 7900.0,
+        'wind_direction': 180.0,
+        'wind_speed': 2.2,
+        'wind_gust_speed': 4.7,
+        'condition': 'rain',
+        'solar': 291600.0,
     }
     assert records[15] == {
         'observation_type': 'current',
         'lat': 10.1,
         'lon': 20.2,
         'height': 30.3,
-        'dwd_station_id': 'YYY',
-        'wmo_station_id': '01049',
+        'dwd_station_id': '01766',
+        'wmo_station_id': '10315',
         'station_name': 'Muenster',
-        'timestamp': datetime.datetime(2020, 4, 5, 17, 0, tzinfo=utc),
-        'cloud_cover': None,
-        'dew_point': 270.05,
-        'precipitation': 0.6,
-        'pressure_msl': 101910.,
-        'relative_humidity': 94.,
-        'sunshine': None,
-        'temperature': 270.95,
-        'visibility': None,
-        'wind_direction': 230,
-        'wind_speed': 3.9,
-        'wind_gust_speed': 7.2,
-        'condition': None,
+        'timestamp': datetime.datetime(2023, 4, 11, 20, 0, tzinfo=utc),
+        'cloud_cover': 63.0,
+        'dew_point': 273.65,
+        'precipitation': 0.0,
+        'pressure_msl': 101170,
+        'relative_humidity': 67.0,
+        'sunshine': 0,
+        'temperature': 279.35,
+        'visibility': 49400.0,
+        'wind_direction': 140.0,
+        'wind_speed': 1.9,
+        'wind_gust_speed': 2.2,
+        'condition': 'dry',
+        'solar': 0.0,
     }
 
 
@@ -230,6 +238,18 @@ def test_observations_parser_skip_timestamp(data_dir):
     records = list(p.parse(data_dir / 'observations_recent_FF_akt.zip'))
     assert len(records) == 1
     assert records[0]['timestamp'].year == 2019
+
+
+def test_ten_minutes_observations_parser_extra_urls(data_dir):
+    class TestParser(TenMinutesObservationsParser):
+        META_DATA_URL = 'test_{dwd_station_id}.zip'
+
+    parser = TestParser()
+    path = data_dir / 'observations_recent_extrema_wind_akt.zip'
+    expected_meta_url = 'test_01766.zip'
+    assert parser.get_extra_urls(path) == {
+        'meta_path': expected_meta_url,
+    }
 
 
 def _test_parser(
@@ -347,19 +367,6 @@ def test_wind_gusts_observations_parser(data_dir):
     )
 
 
-def test_wind_gusts_observations_parser_extra_urls(data_dir):
-    parser = WindGustsObservationsParser()
-    path = data_dir / 'observations_recent_extrema_wind_akt.zip'
-    expected_meta_url = (
-        'https://opendata.dwd.de/climate_environment/CDC/observations_germany/'
-        'climate/10_minutes/extreme_wind/meta_data/'
-        'Meta_Daten_zehn_min_fx_01766.zip'
-    )
-    assert parser.get_extra_urls(path) == {
-        'meta_path': expected_meta_url,
-    }
-
-
 def test_sunshine_observations_parser(data_dir):
     _test_parser(
         SunshineObservationsParser,
@@ -387,6 +394,17 @@ def test_pressure_observations_parser_approximates_pressure_msl(data_dir):
     assert records[4]['pressure_msl'] == 102260
 
 
+def test_solar_radiation_observations_parser(data_dir):
+    _test_parser(
+        SolarRadiationObservationsParser,
+        data_dir / '10minutenwerte_SOLAR_01766_now.zip',
+        {'timestamp': '2023-04-12 01:00', 'solar': 0.0},
+        {'timestamp': '2023-04-12 12:00', 'solar': 674000.},
+        meta_path=data_dir / 'Meta_Daten_zehn_min_sd_01766.zip',
+        count=12,
+    )
+
+
 def test_get_parser():
     synop_with_timestamp = (
         'Z__C_EDZW_20200617114802_bda01,synop_bufr_GER_999999_999999__MW_617'
@@ -396,6 +414,7 @@ def test_get_parser():
     expected = {
         '10minutenwerte_extrema_wind_00427_akt.zip': (
             WindGustsObservationsParser),
+        '10minutenwerte_SOLAR_01766_now.zip': SolarRadiationObservationsParser,
         'stundenwerte_FF_00011_akt.zip': WindObservationsParser,
         'stundenwerte_FF_00090_akt.zip': WindObservationsParser,
         'stundenwerte_N_01766_akt.zip': CloudCoverObservationsParser,

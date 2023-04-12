@@ -14,7 +14,7 @@ def pytest_configure(config):
     from dwdparse.stations import _converter
     # Must contain all stations that we use in test data
     _converter.dwd_to_wmo = {
-        'XXX': '01028',
+        'XXX': 'P0036',
         'YYY': '01049',
         '01766': '10315',
         '04911': '10788',

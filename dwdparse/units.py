@@ -14,6 +14,18 @@ def kelvin_to_celsius(temperature):
     return round(temperature - 273.15, 2)
 
 
+def j_per_cm2_to_j_per_m2(solar):
+    return solar * 10000
+
+
+def j_per_m2_to_kwh_per_m2(solar):
+    return round(solar / 3600000, 3)
+
+
+def kj_per_m2_to_j_per_m2(solar):
+    return solar * 1000
+
+
 def km_to_m(distance):
     return distance * 1000
 
@@ -36,6 +48,10 @@ def pa_to_hpa(pressure):
 
 def seconds_to_minutes(duration):
     return duration / 60
+
+
+def w_per_m2_to_hourly_j_per_m2(solar):
+    return solar * 3600
 
 
 # XXX: Subsequent codes with the same mapping are left out. I.e. all codes from
@@ -159,6 +175,10 @@ CONVERTERS = {
     'dwd': {
         'dew_point': kelvin_to_celsius,
         'pressure_msl': pa_to_hpa,
+        'solar': j_per_m2_to_kwh_per_m2,
+        'solar_10': j_per_m2_to_kwh_per_m2,
+        'solar_30': j_per_m2_to_kwh_per_m2,
+        'solar_60': j_per_m2_to_kwh_per_m2,
         'sunshine': seconds_to_minutes,
         'sunshine_10': seconds_to_minutes,
         'sunshine_30': seconds_to_minutes,

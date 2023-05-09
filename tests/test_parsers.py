@@ -7,6 +7,7 @@ from dwdparse.parsers import (
     MOSMIXParser,
     PrecipitationObservationsParser,
     PressureObservationsParser,
+    RADOLANParser,
     SolarRadiationObservationsParser,
     SunshineObservationsParser,
     SYNOPParser,
@@ -405,6 +406,38 @@ def test_solar_radiation_observations_parser(data_dir):
     )
 
 
+def test_radolan_parser(data_dir):
+    p = RADOLANParser()
+    records = list(p.parse(data_dir / 'DE1200_RV2305081330.tar.bz2'))
+    assert len(records) == 2
+    assert records[0]['observation_type'] == 'radar'
+    assert records[0]['source'] == 'RADOLAN::RV::2023-05-08T13:30:00+00:00'
+    assert records[0]['timestamp'] == datetime.datetime(
+        2023, 5, 8, 13, 30, tzinfo=utc,
+    )
+    assert records[1]['source'] == 'RADOLAN::RV::2023-05-08T13:30:00+00:00'
+    assert records[1]['timestamp'] == datetime.datetime(
+        2023, 5, 8, 14, 20, tzinfo=utc,
+    )
+    data = records[0]['precipitation_5']
+    data_flat = [x for row in data for x in row]
+    assert len(data) == 1200
+    assert all(len(row) == 1100 for row in data)
+    assert sum(x is None for x in data_flat) == 623059
+    assert round(sum(x or 0 for x in data_flat), 2) == 5640.30
+    clipped = [
+        row[334:339]
+        for row in data[1117:1122]
+    ]
+    assert clipped == [
+        [ .03,  .05,  .02,  .01,  .03],  # noqa: E201
+        [ .02,  .03,  .03,    0,    0],  # noqa: E201
+        [ .03,  .04,  .01,    0,  .03],  # noqa: E201
+        [None,  .08,    0,    0,    0],
+        [None, None, None, None, None],
+    ]
+
+
 def test_get_parser():
     synop_with_timestamp = (
         'Z__C_EDZW_20200617114802_bda01,synop_bufr_GER_999999_999999__MW_617'
@@ -425,6 +458,7 @@ def test_get_parser():
         'stundenwerte_TU_00161_akt.zip': TemperatureObservationsParser,
         'stundenwerte_VV_00161_akt.zip': VisibilityObservationsParser,
         'MOSMIX_S_LATEST_240.kmz': MOSMIXParser,
+        'DE1200_RV2305081330.tar.bz2': RADOLANParser,
         'K611_-BEOB.csv': CurrentObservationsParser,
         synop_with_timestamp: SYNOPParser,
         synop_latest: None,

@@ -77,7 +77,7 @@ class MOSMIXParser(Parser):
         self.logger.info("Parsing %s", path)
         with zipfile.ZipFile(path) as zf:
             infolist = zf.infolist()
-            assert len(infolist) == 1, f'Unexpected zip content in {self.path}'
+            assert len(infolist) == 1, f'Unexpected zip content in {path}'
             with zf.open(infolist[0]) as f:
                 yield from self._parse_stream(f)
 
@@ -429,7 +429,7 @@ class ObservationsParser(Parser):
         for filename in zf.namelist():
             if (m := re.match(r'Metadaten_Geographie_(\d+)\.txt', filename)):
                 return m.group(1)
-        raise ValueError(f"Unable to parse station ID for {self.path}")
+        raise ValueError(f"Unable to parse station ID for {zf.filename}")
 
     def parse_lat_lon_history(self, zf, dwd_station_id, **extra):
         with zf.open(f'Metadaten_Geographie_{dwd_station_id}.txt') as f:
@@ -526,7 +526,7 @@ class TenMinutesObservationsParser(ObservationsParser):
         for filename in zf.namelist():
             if (m := re.match(r'produkt_.*_(\d+)\.txt', filename)):
                 return m.group(1)
-        raise ValueError(f"Unable to parse station ID for {self.path}")
+        raise ValueError(f"Unable to parse station ID for {zf.filename}")
 
     def parse_lat_lon_history(self, zf, dwd_station_id, **extra):
         if 'meta_path' not in extra:

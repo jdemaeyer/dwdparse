@@ -852,11 +852,118 @@ class RADOLANParser(Parser):
         ]
 
 
+class CAPParser(Parser):
+
+    ns = {
+        'cap': 'urn:oasis:names:tc:emergency:cap:1.2',
+    }
+
+    TAG_MAP = {
+        'de': {
+            'event': 'event_de',
+            'headline': 'headline_de',
+            'description': 'description_de',
+            'instruction': 'instruction_de',
+        },
+        'en': {
+            'event': 'event_en',
+            'headline': 'headline_en',
+            'description': 'description_en',
+            'instruction': 'instruction_en',
+            'category': 'category',
+            'responseType': 'response_type',
+            'urgency': 'urgency',
+            'severity': 'severity',
+            'certainty': 'certainty',
+            'effective': 'effective',
+            'onset': 'onset',
+            'expires': 'expires',
+        }
+    }
+    OPTIONAL_FIELDS = [
+        'expires',
+    ]
+    TOKEN_FIELDS = [
+        'category',
+        'certainty',
+        'response_type',
+        'severity',
+        'urgency',
+    ]
+    TIMESTAMP_FIELDS = [
+        'effective',
+        'onset',
+        'expires',
+    ]
+
+    def parse(self, path):
+        self.logger.info("Parsing %s", path)
+        with zipfile.ZipFile(path) as zf:
+            for info in zf.infolist():
+                with zf.open(info) as f:
+                    yield self.parse_event(f)
+
+    def parse_event(self, f):
+        event = {}
+        for _, element in ET.iterparse(f):
+            if self._is_tag(element, 'cap:info'):
+                self._parse_info(event, element)
+                element.clear()
+            elif self._is_tag(element, 'cap:alert'):
+                event['id'] = element.find(
+                    'cap:identifier',
+                    self.ns,
+                ).text.rsplit('.', 1)[0]
+        self.sanitize_event(event)
+        return event
+
+    def _parse_info(self, event, element):
+        lang = element.find('cap:language', self.ns).text.split('-')[0]
+        tag_map = self.TAG_MAP.get(lang, {})
+        for tag, field in tag_map.items():
+            e = element.find(f'cap:{tag}', self.ns)
+            if e is not None:
+                event[field] = e.text
+            elif field in self.OPTIONAL_FIELDS:
+                event[field] = None
+            else:
+                raise ValueError("Unable to find <%s>" % tag)
+        if 'event_code' not in event:
+            event['event_code'] = self._parse_event_code(element)
+        if 'warn_cell_ids' not in event:
+            event['warn_cell_ids'] = list(self._parse_warn_cell_ids(element))
+
+    def _is_tag(self, element, tag):
+        prefix, tag = tag.split(':')
+        return element.tag == f'{{{self.ns[prefix]}}}{tag}'
+
+    def _parse_event_code(self, element):
+        for ec_element in element.findall('cap:eventCode', self.ns):
+            if ec_element.find('cap:valueName', self.ns).text == 'II':
+                return int(ec_element.find('cap:value', self.ns).text)
+
+    def _parse_warn_cell_ids(self, element):
+        for gc_element in element.findall('cap:area/cap:geocode', self.ns):
+            if gc_element.find('cap:valueName', self.ns).text == 'WARNCELLID':
+                yield int(gc_element.find('cap:value', self.ns).text)
+
+    def sanitize_event(self, event):
+        for field in self.TOKEN_FIELDS:
+            if event[field] is None:
+                continue
+            event[field] = event[field].lower()
+        for field in self.TIMESTAMP_FIELDS:
+            if event[field] is None:
+                continue
+            event[field] = datetime.datetime.fromisoformat(event[field])
+
+
 def get_parser(filename):
     parsers = {
         r'DE1200_RV': RADOLANParser,
         r'MOSMIX_(S|L)_LATEST(_240)?\.kmz$': MOSMIXParser,
         r'Z__C_EDZW_\d+_.*\.json\.bz2$': SYNOPParser,
+        r'Z_CAP_.*\.zip': CAPParser,
         r'\w{5}-BEOB\.csv$': CurrentObservationsParser,
         'stundenwerte_FF_': WindObservationsParser,
         'stundenwerte_N_': CloudCoverObservationsParser,

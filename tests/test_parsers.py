@@ -1,6 +1,7 @@
 import datetime
 
 from dwdparse.parsers import (
+    CAPParser,
     CloudCoverObservationsParser,
     CurrentObservationsParser,
     DewPointObservationsParser,
@@ -438,12 +439,55 @@ def test_radolan_parser(data_dir):
     ]
 
 
+def test_cap_parser(data_dir):
+    p = CAPParser()
+    fn = 'Z_CAP_C_EDZW_LATEST_PVW_STATUS_PREMIUMDWD_COMMUNEUNION_MUL.zip'
+    records = list(p.parse(data_dir / fn))
+    expected_ids = set(
+        f'2.49.0.0.276.0.DWD.PVW.{suffix}'
+        for suffix in [
+            '1687514160000.20999218-5d5e-4761-b271-6c243f695568',
+            '1687511640000.0d1a4fb5-251a-46fc-aae3-a688d2021e71',
+            '1687470000000.fe90b61b-3755-4efb-8eda-b161251da9f7',
+        ]
+    )
+    assert len(records) == 3
+    assert set(r['id'] for r in records) == expected_ids
+    assert records[1] == {
+        'id': '2.49.0.0.276.0.DWD.PVW.1687511640000.0d1a4fb5-251a-46fc-aae3-a688d2021e71',  # noqa
+        'event_de': 'STARKREGEN',
+        'headline_de': 'Amtliche WARNUNG vor STARKREGEN',
+        'description_de': 'Es tritt Starkregen auf. Dabei werden Niederschlagsmengen zwischen 20 l/m² und 30 l/m² in 6 Stunden erwartet.',  # noqa
+        'instruction_de': 'ACHTUNG! Hinweis auf mögliche Gefahren: Während des Platzregens sind kurzzeitig Verkehrsbehinderungen möglich.',  # noqa
+        'event_code': 61,
+        'warn_cell_ids': [
+          812069270,
+          812063189,
+          812069018
+        ],
+        'event_en': 'heavy rain',
+        'headline_en': 'Official WARNING of HEAVY RAIN',
+        'description_en': 'There is a risk of heavy rain (Level 2 of 4).\nPrecipitation amounts: 20-30 l/m²/6h',  # noqa
+        'instruction_en': 'NOTE: Be aware of the following possible dangers: The downpours can cause temporary traffic disruption.',  # noqa
+        'category': 'met',
+        'response_type': 'prepare',
+        'urgency': 'immediate',
+        'severity': 'moderate',
+        'certainty': 'likely',
+        'effective': datetime.datetime(2023, 6, 23, 9, 14, tzinfo=utc),
+        'onset': datetime.datetime(2023, 6, 23, 9, 14, tzinfo=utc),
+        'expires': datetime.datetime(2023, 6, 23, 13, 0, tzinfo=utc),
+    }
+
+
 def test_get_parser():
     synop_with_timestamp = (
         'Z__C_EDZW_20200617114802_bda01,synop_bufr_GER_999999_999999__MW_617'
         '.json.bz2')
     synop_latest = (
         'Z__C_EDZW_latest_bda01,synop_bufr_GER_999999_999999__MW_XXX.json.bz2')
+    cap_latest = (
+        'Z_CAP_C_EDZW_LATEST_PVW_STATUS_PREMIUMDWD_COMMUNEUNION_MUL.zip')
     expected = {
         '10minutenwerte_extrema_wind_00427_akt.zip': (
             WindGustsObservationsParser),
@@ -462,6 +506,7 @@ def test_get_parser():
         'K611_-BEOB.csv': CurrentObservationsParser,
         synop_with_timestamp: SYNOPParser,
         synop_latest: None,
+        cap_latest: CAPParser,
     }
     for filename, expected_parser in expected.items():
         assert get_parser(filename) is expected_parser

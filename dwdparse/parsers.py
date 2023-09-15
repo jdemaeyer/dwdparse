@@ -184,6 +184,12 @@ class MOSMIXParser(Parser):
                 self.logger.warning(
                     "Fixing out-of-bounds wind direction: %s", r)
                 r['wind_direction'] -= 360
+            if r['cloud_cover'] and r['cloud_cover'] < 0:
+                self.logger.warning("Fixing negative cloud cover: %s", r)
+                r['cloud_cover'] = 0
+            if r['cloud_cover'] and r['cloud_cover'] > 100:
+                self.logger.warning("Fixing overflown cloud cover: %s", r)
+                r['cloud_cover'] = 100
             yield r
 
 

@@ -10,14 +10,15 @@ from dwdparse.utils import fetch
 logger = logging.getLogger(__name__)
 
 
-def parse(path, **extra):
-    return get_parser(pathlib.Path(path).name)().parse(path, **extra)
+def parse(path, parser=None, **extra):
+    parser = parser or get_parser(pathlib.Path(path).name)()
+    return parser.parse(path, **extra)
 
 
-def parse_url(url):
+def parse_url(url, parser=None):
     with tempfile.TemporaryDirectory() as tmpdir:
         file_path = _download(url, tmpdir)
-        parser = get_parser(file_path.name)()
+        parser = parser or get_parser(file_path.name)()
         extra = {
             kwarg: _download(extra_url, tmpdir)
             for kwarg, extra_url in parser.get_extra_urls(file_path).items()

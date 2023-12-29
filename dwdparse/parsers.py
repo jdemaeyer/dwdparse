@@ -792,6 +792,7 @@ class RADOLANParser(Parser):
     WIDTH = 1100
     INTERVAL = 5
     PRECISION = 'E-02'
+    FIELD_NAME = 'precipitation_5'
 
     def parse(self, path):
         with tarfile.open(path, 'r:bz2') as tar:
@@ -844,7 +845,7 @@ class RADOLANParser(Parser):
         if sys.byteorder != 'little':
             raw.byteswap()
         return {
-            'precipitation_5': self.process_raw_data(raw),
+            self.FIELD_NAME: self.process_raw_data(raw),
         }
 
     def process_raw_data(self, raw):

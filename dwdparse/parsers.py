@@ -792,7 +792,13 @@ class RADOLANParser(Parser):
     WIDTH = 1100
     INTERVAL = 5
     PRECISION = 'E-02'
+    BYTES_PER_PIXEL = 2
+    ARRAY_TYPE = 'H'
     FIELD_NAME = 'precipitation_5'
+
+    @property
+    def data_length(self):
+        return self.BYTES_PER_PIXEL * self.HEIGHT * self.WIDTH
 
     def parse(self, path):
         with tarfile.open(path, 'r:bz2') as tar:
@@ -827,7 +833,7 @@ class RADOLANParser(Parser):
         # 1200 km x 1100 km grid
         assert f'GP{self.HEIGHT}x{self.WIDTH}' in header
         # 2 bytes per cell
-        expected_bytes = 2 * self.HEIGHT * self.WIDTH + len(header) + 1
+        expected_bytes = self.data_length + len(header) + 1
         assert f'BY{expected_bytes:10d}' in header
         # Integers represent 0.01 mm
         assert f'PR{self.PRECISION:>5s}' in header
@@ -839,8 +845,9 @@ class RADOLANParser(Parser):
 
     def parse_data(self, f):
         buf = f.read()
-        assert len(buf) == 2 * self.HEIGHT * self.WIDTH, "Unexpected grid size"
-        raw = array.array('H')
+        assert len(buf) == self.data_length, "Unexpected grid size"
+        raw = array.array(self.ARRAY_TYPE)
+        assert raw.itemsize == self.BYTES_PER_PIXEL, "Unexpected architecture"
         raw.frombytes(buf)
         if sys.byteorder != 'little':
             raw.byteswap()

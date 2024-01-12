@@ -69,7 +69,7 @@ option and the example section with `dwdparse --help`.
    path of the file you would like to parse. This will return an iterable over
    weather records:
    ```python
-   from brightsky import get_parser
+   from dwdparse import get_parser
 
 
    DWD_FILE_PATH = 'stundenwerte_TU_01766_akt.zip'

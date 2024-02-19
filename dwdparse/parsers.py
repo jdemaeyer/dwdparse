@@ -177,9 +177,11 @@ class MOSMIXParser(Parser):
     def sanitize_records(self, records):
         for r in records:
             if r['precipitation'] and r['precipitation'] < 0:
-                self.logger.warning(
-                    "Ignoring negative precipitation value: %s", r)
-                r['precipitation'] = None
+                self.logger.warning("Fixing negative precipitation: %s", r)
+                r['precipitation'] = 0
+            if r['wind_speed'] and r['wind_speed'] < 0:
+                self.logger.warning("Fixing negative wind speed: %s", r)
+                r['wind_speed'] = 0
             if r['wind_direction'] and r['wind_direction'] > 360:
                 self.logger.warning(
                     "Fixing out-of-bounds wind direction: %s", r)

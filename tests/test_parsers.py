@@ -474,6 +474,7 @@ def test_cap_parser(data_dir):
         'urgency': 'immediate',
         'severity': 'moderate',
         'certainty': 'likely',
+        'status': "actual",
         'effective': datetime.datetime(2023, 6, 23, 9, 14, tzinfo=utc),
         'onset': datetime.datetime(2023, 6, 23, 9, 14, tzinfo=utc),
         'expires': datetime.datetime(2023, 6, 23, 13, 0, tzinfo=utc),

@@ -930,6 +930,8 @@ class CAPParser(Parser):
                     'cap:identifier',
                     self.ns,
                 ).text.rsplit('.', 1)[0]
+            elif self._is_tag(element, "cap:status"): 
+                event["status"] = element.text.lower()
         self.sanitize_event(event)
         return event
 

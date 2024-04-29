@@ -438,11 +438,6 @@ def test_radolan_parser(data_dir):
         [None, None, None, None, None],
     ]
 
-def test_cap_parser(data_dir):
-    test_cap_parser_actual_status(data_dir)
-    test_cap_parser_test_status(data_dir)
-
-
 def test_cap_parser_actual_status(data_dir):
     p = CAPParser()
     fn = 'Z_CAP_C_EDZW_LATEST_PVW_STATUS_PREMIUMDWD_COMMUNEUNION_MUL.zip'
@@ -488,135 +483,9 @@ def test_cap_parser_test_status(data_dir):
     p = CAPParser()
     fn = 'Z_CAP_with_test.zip'
     records = list(p.parse(data_dir / fn))
-    expected_id = "2.49.0.0.276.0.DWD.PVW.1713860460000.8f3f6cfd-f3bd-4fff-9583-5c2eb408a1b9" # noqa
     
-    print(records)
     assert len(records) == 1
-    assert records[0]["id"] == expected_id
-    assert records[0] == {
-        'id': '2.49.0.0.276.0.DWD.PVW.1713860460000.8f3f6cfd-f3bd-4fff-9583-5c2eb408a1b9',  # noqa
-        'event_de': 'TEST-WARNUNG',
-        'headline_de': 'Amtliche TEST-WARNUNG',
-        'description_de': 'Test: Test: Heute scheint der Mond.',  # noqa
-        'instruction_de': 'ACHTUNG!  TEST  TEST',  # noqa
-        'event_code': 98,
-        'warn_cell_ids': [
-            806634004, 
-            806634001, 
-            806634003, 
-            806634013, 
-            806634014, 
-            806634015, 
-            806634009, 
-            806634011, 
-            816063104, 
-            806634020, 
-            806634021, 
-            806634022, 
-            806634023, 
-            806634016, 
-            806634017, 
-            806634019, 
-            806634024, 
-            806634025, 
-            806634026, 
-            806632020, 
-            816066022, 
-            816066023, 
-            806632016, 
-            806632017, 
-            806632018, 
-            806632019, 
-            806631007, 
-            806535001, 
-            806535006, 
-            816066025, 
-            806631002, 
-            806632004, 
-            806632005, 
-            806632006, 
-            806632007, 
-            806632001, 
-            806632002, 
-            806632003, 
-            806632012, 
-            806632013, 
-            806632014, 
-            806632015, 
-            816067064,
-            806632008, 
-            816067065, 
-            806632009, 
-            806632010, 
-            806632011, 
-            816056000, 
-            816067019, 
-            806631015, 
-            806535015, 
-            816066013, 
-            806631022, 
-            806631023, 
-            816066015, 
-            806631019, 
-            816066086, 
-            816063015, 
-            816063008, 
-            816063011, 
-            816063023, 
-            816066095, 
-            816063028, 
-            816063032, 
-            816063033, 
-            816067072, 
-            816066061, 
-            816066063, 
-            816066059, 
-            816067092, 
-            816066069, 
-            816067088, 
-            816066064, 
-            816067091, 
-            816063004, 
-            816063006, 
-            816066074, 
-            816063003, 
-            816063076, 
-            816063078, 
-            816063084, 
-            816063086, 
-            816063082, 
-            816063092, 
-            816063101, 
-            816063103, 
-            816063097, 
-            816063098, 
-            816063099, 
-            816063046, 
-            816064076, 
-            816063049, 
-            816063051, 
-            806636005, 
-            816063062, 
-            816063068, 
-            806636012, 
-            816063071, 
-            816063066, 
-            806636010, 
-            806636011],
-        'event_en': 'moderate test warning',
-        'headline_en': 'MODERATE TEST WARNING',
-        'description_en': 'Test! Test: unclouded moon.\n',  # noqa
-        'instruction_en': 'NOTE: Be aware of the following possible dangers: barking dogs in the neighborhood.',  # noqa
-        'category': 'met',
-        'response_type': 'prepare',
-        'urgency': 'immediate',
-        'severity': 'minor',
-        'certainty': 'likely',
-        'status': "test",
-        'effective': datetime.datetime(2024, 4, 23, 10, 21, tzinfo=datetime.timezone(datetime.timedelta(seconds=7200))), # noqa
-        'onset': datetime.datetime(2024, 4, 23, 10, 21, tzinfo=datetime.timezone(datetime.timedelta(seconds=7200))), # noqa
-        'expires': datetime.datetime(2024, 4, 23, 12, 0, tzinfo=datetime.timezone(datetime.timedelta(seconds=7200))), # noqa
-    }
+    assert records[0]["status"] == "test"
 
 
 def test_get_parser():

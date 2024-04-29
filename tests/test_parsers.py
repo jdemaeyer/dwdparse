@@ -488,7 +488,7 @@ def test_cap_parser_test_status(data_dir):
     p = CAPParser()
     fn = 'Z_CAP_with_test.zip'
     records = list(p.parse(data_dir / fn))
-    expected_id = "2.49.0.0.276.0.DWD.PVW.1713860460000.8f3f6cfd-f3bd-4fff-9583-5c2eb408a1b9"
+    expected_id = "2.49.0.0.276.0.DWD.PVW.1713860460000.8f3f6cfd-f3bd-4fff-9583-5c2eb408a1b9" # noqa
     
     print(records)
     assert len(records) == 1
@@ -613,9 +613,9 @@ def test_cap_parser_test_status(data_dir):
         'severity': 'minor',
         'certainty': 'likely',
         'status': "test",
-        'effective': datetime.datetime(2024, 4, 23, 10, 21, tzinfo=datetime.timezone(datetime.timedelta(seconds=7200))),
-        'onset': datetime.datetime(2024, 4, 23, 10, 21, tzinfo=datetime.timezone(datetime.timedelta(seconds=7200))),
-        'expires': datetime.datetime(2024, 4, 23, 12, 0, tzinfo=datetime.timezone(datetime.timedelta(seconds=7200))),
+        'effective': datetime.datetime(2024, 4, 23, 10, 21, tzinfo=datetime.timezone(datetime.timedelta(seconds=7200))), # noqa
+        'onset': datetime.datetime(2024, 4, 23, 10, 21, tzinfo=datetime.timezone(datetime.timedelta(seconds=7200))), # noqa
+        'expires': datetime.datetime(2024, 4, 23, 12, 0, tzinfo=datetime.timezone(datetime.timedelta(seconds=7200))), # noqa
     }
 
 

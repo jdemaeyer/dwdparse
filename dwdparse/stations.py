@@ -30,10 +30,10 @@ class StationIDConverter:
     def parse_station_list(self, html):
         dwd_to_wmo = {}
         wmo_to_dwd = {}
-        for line in html.splitlines():
-            if not line.startswith('<tr>') or not line.count('<td') == 11:
+        for line in re.findall(r'(?s)<tr>.*?</tr>', html):
+            values = re.findall(r'(?s)<td[^>]*?>\s*(.*?)\s*</td>', line)
+            if len(values) != 11:
                 continue
-            values = re.findall(r'<td[^>]*?>(.*?)</td>', line)
             if values[2] not in self.STATION_TYPES:
                 continue
             dwd_id = values[1].zfill(5)

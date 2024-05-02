@@ -1,7 +1,9 @@
 [tool.ruff]
-select = ["B", "E", "F", "I"]
 line-length = 79
 target-version = "py38"
 
-[tool.ruff.isort]
+[tool.ruff.lint]
+select = ["B", "E", "F", "I"]
+
+[tool.ruff.lint.isort]
 lines-after-imports = 2

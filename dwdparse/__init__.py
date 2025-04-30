@@ -3,7 +3,7 @@ from dwdparse.parsers import get_parser
 from dwdparse.stations import load_stations
 
 
-__version__ = '0.9.14'
+__version__ = '0.9.15'
 __all__ = [
    '__version__',
    'get_parser',

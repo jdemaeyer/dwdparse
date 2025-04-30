@@ -233,8 +233,18 @@ class SYNOPParser(Parser):
         with bz2.open(path) as f:
             if not f.read(1):
                 return
-            f.seek(0)
-            for block in self._get_message_blocks(f):
+            f.seek(-2, 2)
+            if f.read(1) == b',':
+                self.logger.warning(
+                    "Working around broken SYNOP file ending for %s",
+                    path,
+                )
+                f.seek(0)
+                fixed_f = io.BytesIO(f.read()[:-2] + b']}')
+            else:
+                f.seek(0)
+                fixed_f = f
+            for block in self._get_message_blocks(fixed_f):
                 for message in block[-1]:
                     with suppress(SkipRecord):
                         record = self.parse_message(message)

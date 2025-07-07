@@ -989,7 +989,7 @@ class CAPParser(Parser):
 def get_parser(filename):
     parsers = {
         r'DE1200_RV': RADOLANParser,
-        r'MOSMIX_(S|L)_LATEST(_(240|\w\d{3,4}))?\.kmz$': MOSMIXParser,
+        r'MOSMIX_': MOSMIXParser,
         r'Z__C_EDZW_\d+_.*\.json\.bz2$': SYNOPParser,
         r'Z_CAP_.*\.zip': CAPParser,
         r'\w{5}-BEOB\.csv$': CurrentObservationsParser,

@@ -18,13 +18,15 @@ def test_synop_current_weather_code_to_condition():
         199: 'thunderstorm',
         500: None,
 
-        0.0: 'dry',
         16.0: 'dry',
         17.0: 'thunderstorm',
         18.0: 'dry',
     }
     for code, exp_condition in expected.items():
         assert synop_current_weather_code_to_condition(code) == exp_condition
+    # Can't explicitly test via `expected` dict as `0` and `0.0` hash to the
+    # same value
+    assert synop_current_weather_code_to_condition(0.0) == 'dry'
 
 
 def test_convert_record():

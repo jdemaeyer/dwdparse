@@ -868,6 +868,103 @@ class RADOLANParser(Parser):
         ]
 
 
+class RadarParser(Parser):
+
+    PRODUCT = 'RV'
+    PRODUCT_NAME = 'RV_top_view'
+    HEIGHT = 1200
+    WIDTH = 1100
+    PRECISION = 3
+    FIELD_NAME = 'precipitation_5'
+
+    @property
+    def data_length(self):
+        return self.BYTES_PER_PIXEL * self.HEIGHT * self.WIDTH
+
+    def parse(self, path):
+        with tarfile.open(path, 'r') as tar:
+            for filename in sorted(tar.getnames()):
+                yield self.parse_single(tar.extractfile(filename))
+
+    def parse_single(self, f):
+        try:
+            import h5py
+        except ModuleNotFoundError:
+            try:
+                import pyfive as h5py
+            except ModuleNotFoundError:
+                raise RuntimeError(
+                    "Parsing HDF5 composite radar data requires either h5py "
+                    "or pyfive",
+                ) from None
+
+        f = h5py.File(io.BytesIO(f.read()))
+        self.verify_meta(f)
+        timestamp = self.parse_timestamp(f)
+        data_timestamp = self.parse_data_timestamp(f)
+        data = self.parse_data(f)
+        return {
+            'observation_type': 'radar',
+            'source': f'RADARCOMP::{self.PRODUCT}::{timestamp.isoformat()}',
+            'timestamp': data_timestamp,
+            **data,
+        }
+
+    def verify_meta(self, f):
+        prodname = f['dataset1/what'].attrs['prodname']
+        assert prodname.decode() == self.PRODUCT_NAME
+        assert f['what'].attrs['object'] == b'COMP'
+        assert f['where'].attrs['xsize'] == self.WIDTH
+        assert f['where'].attrs['ysize'] == self.HEIGHT
+        assert f['dataset1/data1/data'].shape == (self.HEIGHT, self.WIDTH)
+
+    def _parse_ts(self, date_str, time_str):
+        return datetime.datetime.strptime(
+            (date_str + time_str).decode(),
+            '%Y%m%d%H%M%S',
+        ).replace(
+            tzinfo=datetime.timezone.utc,
+        )
+
+    def parse_timestamp(self, f):
+        return self._parse_ts(
+            f['what'].attrs['date'],
+            f['what'].attrs['time'],
+        )
+
+    def parse_data_timestamp(self, f):
+        return self._parse_ts(
+            f['dataset1/what'].attrs['enddate'],
+            f['dataset1/what'].attrs['endtime'],
+        )
+
+    def parse_data(self, f):
+        raw = f['dataset1/data1/data'][:]
+        nodata = f['dataset1/data1/what'].attrs.get('nodata')
+        gain = f['dataset1/data1/what'].attrs.get('gain')
+        offset = f['dataset1/data1/what'].attrs.get('offset')
+        return {
+            self.FIELD_NAME: self.process_raw_data(raw, nodata, gain, offset),
+        }
+
+    def process_raw_data(self, raw, nodata, gain, offset):
+        import numpy as np
+        raw = raw.astype(float)
+        if nodata is not None:
+            raw[raw == nodata] = np.nan
+        if gain is not None:
+            raw *= gain
+            if offset is not None:
+                raw += offset + gain
+        if self.PRECISION is not None:
+            raw = raw.round(self.PRECISION)
+        return self.serialize(raw)
+
+    def serialize(self, arr):
+        import numpy as np
+        return np.where(np.isnan(arr), None, arr).tolist()
+
+
 class CAPParser(Parser):
 
     ns = {
@@ -983,6 +1080,7 @@ def get_parser(filename):
         r'Z__C_EDZW_\d+_.*\.json\.bz2$': SYNOPParser,
         r'Z_CAP_.*\.zip': CAPParser,
         r'\w{5}-BEOB\.csv$': CurrentObservationsParser,
+        'composite_rv_': RadarParser,
         'stundenwerte_FF_': WindObservationsParser,
         'stundenwerte_N_': CloudCoverObservationsParser,
         'stundenwerte_P0_': PressureObservationsParser,

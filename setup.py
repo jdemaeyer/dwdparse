@@ -29,6 +29,13 @@ setup(
         'lean': [
             'ijson',
         ],
+        'radar': [
+            'h5py',
+        ],
+        'all': [
+            'h5py',
+            'ijson',
+        ],
     },
     entry_points={
         'console_scripts': ['dwdparse = dwdparse.cli:main'],

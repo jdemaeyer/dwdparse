@@ -8,6 +8,7 @@ from dwdparse.parsers import (
     MOSMIXParser,
     PrecipitationObservationsParser,
     PressureObservationsParser,
+    RadarParser,
     RADOLANParser,
     SolarRadiationObservationsParser,
     SunshineObservationsParser,
@@ -439,6 +440,38 @@ def test_radolan_parser(data_dir):
     ]
 
 
+def test_radar_parser(data_dir):
+    p = RadarParser()
+    records = list(p.parse(data_dir / 'composite_rv_20250923_0855.tar'))
+    assert len(records) == 2
+    assert records[0]['observation_type'] == 'radar'
+    assert records[0]['source'] == 'RADARCOMP::RV::2025-09-23T08:55:00+00:00'
+    assert records[0]['timestamp'] == datetime.datetime(
+        2025, 9, 23, 8, 55, tzinfo=utc,
+    )
+    assert records[1]['source'] == 'RADARCOMP::RV::2025-09-23T08:55:00+00:00'
+    assert records[1]['timestamp'] == datetime.datetime(
+        2025, 9, 23, 9, 45, tzinfo=utc,
+    )
+    data = records[0]['precipitation_5']
+    data_flat = [x for row in data for x in row]
+    assert len(data) == 1200
+    assert all(len(row) == 1100 for row in data)
+    assert sum(x is None for x in data_flat) == 621995
+    assert round(sum(x or 0 for x in data_flat), 3) == 2467.116
+    clipped = [
+        [round(x, 3) if x is not None else x for x in row[258:263]]
+        for row in data[851:856]
+    ]
+    assert clipped == [
+        [.136, .115, .086, .091, .095],
+        [.124, .110, .079, .088, .094],
+        [.097, .107, .087, .087, .094],
+        [None, None, .025, .066, .080],
+        [None, None, None, None, None],
+    ]
+
+
 def test_cap_parser(data_dir):
     p = CAPParser()
     fn = 'Z_CAP_C_EDZW_LATEST_PVW_STATUS_PREMIUMDWD_COMMUNEUNION_MUL.zip'
@@ -516,6 +549,7 @@ def test_get_parser():
         'MOSMIX_L_2025070703.kmz': MOSMIXParser,
         'MOSMIX_L_2025070615_01089.kmz': MOSMIXParser,
         'DE1200_RV2305081330.tar.bz2': RADOLANParser,
+        'composite_rv_20250923_0855.tar': RadarParser,
         'K611_-BEOB.csv': CurrentObservationsParser,
         synop_with_timestamp: SYNOPParser,
         synop_latest: None,

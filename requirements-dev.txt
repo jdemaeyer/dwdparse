@@ -8,7 +8,7 @@ pluggy==1.6.0
     # via pytest
 pygments==2.19.2
     # via pytest
-pytest==8.4.1
+pytest==8.4.2
     # via -r requirements-dev.in
-ruff==0.12.2
+ruff==0.13.2
     # via -r requirements-dev.in

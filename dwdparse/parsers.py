@@ -293,8 +293,11 @@ class SYNOPParser(Parser):
     def parse_stationNumber(self, record, data, value):
         if data['stationNumber']:
             wmo_id = f"{data['blockNumber']}{data['stationNumber']:03d}"
-        else:
+        elif data.get('shortStationName'):
             wmo_id = data['shortStationName']
+        else:
+            # TODO: Can we derive DWD ID from wigosLocalIdentifierCharacter?
+            raise SkipRecord
         record['wmo_station_id'] = wmo_id
         record['dwd_station_id'] = wmo_id_to_dwd(wmo_id)
 

@@ -53,6 +53,11 @@ class Parser:
     def get_extra_urls(self, path):
         return {}
 
+    @staticmethod
+    def _is_tag(element, tag, ns):
+        prefix, tag = tag.split(':')
+        return element.tag == f'{{{ns[prefix]}}}{tag}'
+
 
 class MOSMIXParser(Parser):
 
@@ -111,10 +116,6 @@ class MOSMIXParser(Parser):
                 yield from self.sanitize_records(records)
                 # XXX: Reduce memory footprint from 1 GB to 30 MB
                 element.clear()
-
-    def _is_tag(self, element, tag, ns):
-        prefix, tag = tag.split(':')
-        return element.tag == f'{{{ns[prefix]}}}{tag}'
 
     def parse_timestamps(self, steps, ns):
         return [
@@ -1068,15 +1069,15 @@ class CAPParser(Parser):
     def parse_event(self, f):
         event = {}
         for _, element in ET.iterparse(f):
-            if self._is_tag(element, 'cap:info'):
+            if self._is_tag(element, 'cap:info', self.ns):
                 self._parse_info(event, element)
                 element.clear()
-            elif self._is_tag(element, 'cap:alert'):
+            elif self._is_tag(element, 'cap:alert', self.ns):
                 event['id'] = element.find(
                     'cap:identifier',
                     self.ns,
                 ).text.rsplit('.', 1)[0]
-            elif self._is_tag(element, 'cap:status'):
+            elif self._is_tag(element, 'cap:status', self.ns):
                 event['status'] = element.text.lower()
         self.sanitize_event(event)
         return event
@@ -1097,10 +1098,6 @@ class CAPParser(Parser):
         if 'warn_cell_ids' not in event:
             event['warn_cell_ids'] = list(self._parse_warn_cell_ids(element))
 
-    def _is_tag(self, element, tag):
-        prefix, tag = tag.split(':')
-        return element.tag == f'{{{self.ns[prefix]}}}{tag}'
-
     def _parse_event_code(self, element):
         for ec_element in element.findall('cap:eventCode', self.ns):
             if ec_element.find('cap:valueName', self.ns).text == 'II':
@@ -1119,7 +1116,9 @@ class CAPParser(Parser):
         for field in self.TIMESTAMP_FIELDS:
             if event[field] is None:
                 continue
-            event[field] = datetime.datetime.fromisoformat(event[field])
+            event[field] = datetime.datetime.fromisoformat(
+                re.sub(r'Z$', '+00:00', event[field])
+            )
 
 
 def get_parser(filename):

@@ -15,6 +15,6 @@ def dump_records(it):
         print(json.dumps(record, default=str))
 
 
-def fetch(url):
-    with urllib.request.urlopen(url) as f:
+def fetch(url, timeout=10):
+    with urllib.request.urlopen(url, timeout=timeout) as f:
         return f.read()

@@ -1,6 +1,14 @@
+import re
+
 from setuptools import setup
 
-import dwdparse
+
+def get_version():
+    with open('dwdparse/__init__.py') as f:
+        match = re.search(r"__version__\s*=\s*['\"]([^'\"]+)['\"]", f.read())
+        if not match:
+            raise RuntimeError("Unable to find version string")
+        return match.group(1)
 
 
 with open('README.md') as f:
@@ -8,7 +16,7 @@ with open('README.md') as f:
 
 setup(
     name='dwdparse',
-    version=dwdparse.__version__,
+    version=get_version(),
     author='Jakob de Maeyer',
     author_email='jakob@naboa.de',
     description="Parsers for DWD's open weather data.",

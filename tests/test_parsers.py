@@ -651,6 +651,28 @@ def test_sanitize_wind_direction_modulo(value, expected):
     assert record['wind_direction'] == expected
 
 
+def test_pressure_observations_approximation_for_missing(data_dir):
+    """pressure_msl == None (DWD's -999 sentinel) is approximated from the
+    station-level pressure via the barometric formula."""
+    p = PressureObservationsParser()
+    records = list(p.parse(data_dir / 'observations_recent_P0_hist.zip'))
+    # Record 4 has pressure_msl missing in the fixture
+    assert records[4]['pressure_msl'] == 102260
+    # Records with actual pressure_msl keep their original values
+    assert records[0]['pressure_msl'] == 102120
+
+
+def test_pressure_observations_approximation_for_zero():
+    """pressure_msl == 0 is treated as a data error and triggers the same
+    barometric approximation as a missing value."""
+    p = PressureObservationsParser()
+    elements = p.parse_elements(
+        {'   P': '0.0', '  P0': '980.9'},
+        lat=50.0, lon=9.0, height=339.5)
+    assert elements['pressure_msl'] is not None
+    assert elements['pressure_msl'] > 0
+
+
 def test_sanitize_synop_time_period_fields():
     record = {
         'precipitation_60': -1.0,

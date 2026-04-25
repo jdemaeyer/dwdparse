@@ -146,6 +146,12 @@ CURRENT_OBSERVATIONS_CONDITION_MAP = {
 
 
 def _find(mapping, code):
+    """Look up a weather code in a sorted threshold mapping.
+
+    Each mapping must end with a sentinel entry whose value is None,
+    so that codes beyond the last real entry return None rather than
+    silently returning the last real value.
+    """
     if code is None:
         return
     value = None

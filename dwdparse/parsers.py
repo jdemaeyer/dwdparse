@@ -77,7 +77,8 @@ class MOSMIXParser(Parser):
         self.logger.info("Parsing %s", path)
         with zipfile.ZipFile(path) as zf:
             infolist = zf.infolist()
-            assert len(infolist) == 1, f'Unexpected zip content in {path}'
+            if len(infolist) != 1:
+                raise ValueError(f'Unexpected zip content in {path}')
             with zf.open(infolist[0]) as f:
                 yield from self._parse_stream(f)
 
@@ -90,17 +91,22 @@ class MOSMIXParser(Parser):
                 ns[element[0]] = element[1]
                 continue
             elif self._is_tag(element, 'dwd:ProductID', ns):
-                assert source is None, "Unexpected extra product ID"
+                if source is not None:
+                    raise ValueError("Unexpected extra product ID")
                 source = element.text
             elif self._is_tag(element, 'dwd:IssueTime', ns):
-                assert source is not None, "Unexpected issue time w/o ID"
+                if source is None:
+                    raise ValueError("Unexpected issue time w/o ID")
                 source += ':' + element.text
             elif self._is_tag(element, 'dwd:ForecastTimeSteps', ns):
-                assert timestamps is None, "Unexpected extra time steps"
+                if timestamps is not None:
+                    raise ValueError("Unexpected extra time steps")
                 timestamps = self.parse_timestamps(element, ns)
             elif self._is_tag(element, 'kml:Placemark', ns):
-                assert timestamps is not None, "Placemark without time steps"
-                assert source is not None, "Placemark without source"
+                if timestamps is None:
+                    raise ValueError("Placemark without time steps")
+                if source is None:
+                    raise ValueError("Placemark without source")
                 records = self.parse_station(element, ns, timestamps, source)
                 yield from self.sanitize_records(records)
                 # XXX: Reduce memory footprint from 1 GB to 30 MB
@@ -144,7 +150,11 @@ class MOSMIXParser(Parser):
                 None if x == '-' else converter(x)
                 for x in re.split(r'\s+', values_str.strip())
             ]
-            assert len(records[column]) == len(timestamps)
+            if len(records[column]) != len(timestamps):
+                raise ValueError(
+                    f"Expected {len(timestamps)} values for {column}, "
+                    f"got {len(records[column])}"
+                )
         base_record = {
             'observation_type': 'forecast',
             'source': source,
@@ -462,7 +472,10 @@ class ObservationsParser(Parser):
     def parse_records(self, zf, lat_lon_history, **extra):
         product_filenames = [
             fn for fn in zf.namelist() if fn.startswith('produkt_')]
-        assert len(product_filenames) == 1, "Unexpected product count"
+        if len(product_filenames) != 1:
+            raise ValueError(
+                f"Expected 1 product file, found {len(product_filenames)}"
+            )
         filename = product_filenames[0]
         with zf.open(filename) as f:
             reader = csv.DictReader(
@@ -826,9 +839,13 @@ class RADOLANParser(Parser):
             header += ch.decode()
         # Product type
         product = header[:2]
-        assert product == self.PRODUCT
+        if product != self.PRODUCT:
+            raise ValueError(
+                f"Expected product {self.PRODUCT}, got {product!r}")
         # WMO ID should be 10000 for composite
-        assert header[8:13] == self.WMO_ID
+        if header[8:13] != self.WMO_ID:
+            raise ValueError(
+                f"Expected WMO ID {self.WMO_ID}, got {header[8:13]!r}")
         timestamp = datetime.datetime.strptime(
             header[2:8] + header[13:17],
             '%d%H%M%m%y',
@@ -836,23 +853,37 @@ class RADOLANParser(Parser):
             tzinfo=datetime.timezone.utc,
         )
         # 1200 km x 1100 km grid
-        assert f'GP{self.HEIGHT}x{self.WIDTH}' in header
+        if f'GP{self.HEIGHT}x{self.WIDTH}' not in header:
+            raise ValueError(
+                f"Expected grid GP{self.HEIGHT}x{self.WIDTH} in header")
         # 2 bytes per cell
         expected_bytes = self.data_length + len(header) + 1
-        assert f'BY{expected_bytes:10d}' in header
+        if f'BY{expected_bytes:10d}' not in header:
+            raise ValueError(
+                f"Expected byte count BY{expected_bytes} in header")
         # Integers represent 0.01 mm
-        assert f'PR{self.PRECISION:>5s}' in header
+        if f'PR{self.PRECISION:>5s}' not in header:
+            raise ValueError(
+                f"Expected precision PR{self.PRECISION} in header")
         # Five minute interval
-        assert f'INT{self.INTERVAL:4d}' in header
+        if f'INT{self.INTERVAL:4d}' not in header:
+            raise ValueError(
+                f"Expected interval INT{self.INTERVAL} in header")
         offset_minutes = int(re.search(r'VV([ \d]{4})', header).group(1))
         offset = datetime.timedelta(minutes=offset_minutes)
         return product, timestamp, offset
 
     def parse_data(self, f):
         buf = f.read()
-        assert len(buf) == self.data_length, "Unexpected grid size"
+        if len(buf) != self.data_length:
+            raise ValueError(
+                f"Expected {self.data_length} bytes of grid data, "
+                f"got {len(buf)}")
         raw = array.array(self.ARRAY_TYPE)
-        assert raw.itemsize == self.BYTES_PER_PIXEL, "Unexpected architecture"
+        if raw.itemsize != self.BYTES_PER_PIXEL:
+            raise RuntimeError(
+                f"Expected {self.BYTES_PER_PIXEL}-byte array items, "
+                f"got {raw.itemsize} (architecture mismatch)")
         raw.frombytes(buf)
         if sys.byteorder != 'little':
             raw.byteswap()
@@ -915,11 +946,23 @@ class RadarParser(Parser):
 
     def verify_meta(self, f):
         prodname = f['dataset1/what'].attrs['prodname']
-        assert prodname.decode() == self.PRODUCT_NAME
-        assert f['what'].attrs['object'] == b'COMP'
-        assert f['where'].attrs['xsize'] == self.WIDTH
-        assert f['where'].attrs['ysize'] == self.HEIGHT
-        assert f['dataset1/data1/data'].shape == (self.HEIGHT, self.WIDTH)
+        if prodname.decode() != self.PRODUCT_NAME:
+            raise ValueError(
+                f"Expected product {self.PRODUCT_NAME}, "
+                f"got {prodname.decode()!r}")
+        if f['what'].attrs['object'] != b'COMP':
+            raise ValueError("Expected COMP object type")
+        xsize = f['where'].attrs['xsize']
+        ysize = f['where'].attrs['ysize']
+        if xsize != self.WIDTH or ysize != self.HEIGHT:
+            raise ValueError(
+                f"Expected {self.WIDTH}x{self.HEIGHT} grid, "
+                f"got {xsize}x{ysize}")
+        shape = f['dataset1/data1/data'].shape
+        if shape != (self.HEIGHT, self.WIDTH):
+            raise ValueError(
+                f"Expected data shape ({self.HEIGHT}, {self.WIDTH}), "
+                f"got {shape}")
 
     def _parse_ts(self, date_str, time_str):
         return datetime.datetime.strptime(

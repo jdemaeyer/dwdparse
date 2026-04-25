@@ -1,5 +1,7 @@
 import datetime
 
+import pytest
+
 from dwdparse.parsers import (
     CAPParser,
     CloudCoverObservationsParser,
@@ -557,3 +559,13 @@ def test_get_parser():
     }
     for filename, expected_parser in expected.items():
         assert get_parser(filename) is expected_parser
+
+
+def test_get_parser_unknown_filename():
+    assert get_parser('totally_unknown_file.dat') is None
+
+
+def test_parse_raises_for_unknown_file():
+    from dwdparse.api import parse
+    with pytest.raises(ValueError, match="No parser found"):
+        list(parse('totally_unknown_file.dat'))

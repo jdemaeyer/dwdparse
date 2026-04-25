@@ -58,8 +58,13 @@ class Parser:
         prefix, tag = tag.split(':')
         return element.tag == f'{{{ns[prefix]}}}{tag}'
 
+    @staticmethod
+    def _iso_z_to_utc(timestamp_str):
+        # `datetime.fromisoformat` rejected `Z` before Python 3.11.
+        return re.sub(r'Z$', '+00:00', timestamp_str)
+
     def sanitize_record(self, record):
-        for field, value in list(record.items()):
+        for field, value in record.items():
             if value is None:
                 continue
             fixed = self._sanitize_value(field, value)
@@ -76,10 +81,11 @@ class Parser:
 
     @staticmethod
     def _sanitize_value(field, value):
-        # Strip a trailing '_<seconds>' time-period suffix used by SYNOPParser
-        # (e.g. precipitation_60, sunshine_30) so the same rules apply to both
-        # the bare and the suffixed forms.
-        base = re.sub(r'_\d+$', '', field)
+        # Strip a trailing '_<seconds>' time-period suffix (used by
+        # SYNOPParser, e.g. precipitation_60) so the same rules apply to
+        # both the bare and the suffixed forms.
+        head, _, tail = field.rpartition('_')
+        base = head if head and tail.isdigit() else field
         if base in ('precipitation', 'wind_speed'):
             if value < 0:
                 return 0
@@ -159,7 +165,7 @@ class MOSMIXParser(Parser):
 
     def parse_timestamps(self, steps, ns):
         return [
-            datetime.datetime.fromisoformat(re.sub(r'Z$', '+00:00', el.text))
+            datetime.datetime.fromisoformat(self._iso_z_to_utc(el.text))
             for el in steps.findall('dwd:TimeStep', ns)
         ]
 
@@ -1114,7 +1120,7 @@ class CAPParser(Parser):
             if event[field] is None:
                 continue
             event[field] = datetime.datetime.fromisoformat(
-                re.sub(r'Z$', '+00:00', event[field])
+                self._iso_z_to_utc(event[field])
             )
 
 

@@ -757,6 +757,8 @@ class PressureObservationsParser(ObservationsParser):
             # pressure at station height. We can approximate the pressure at
             # mean sea level through the barometric formula. The error of this
             # approximation could be reduced if we had the current temperature.
+            # We also treat `pressure_msl == 0` as a data error and fall
+            # through to approximation.
             elements['pressure_msl'] = int(round(
                 elements['pressure_station']
                 * (1 - .0065 * height / 288.15) ** -5.255,

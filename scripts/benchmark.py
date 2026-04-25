@@ -16,7 +16,7 @@ logging.getLogger().setLevel(logging.ERROR)
 FILENAME = 'Z__C_EDZW_20230325155702_bda01,synop_bufr_GER_999999_999999__MW_084.json.bz2'  # noqa
 
 
-StationIDConverter.update = lambda *a, **kw: None
+StationIDConverter.load = lambda *a, **kw: None
 
 base_mem = int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024)
 print(f"Base memory usage: {base_mem:,} MiB")

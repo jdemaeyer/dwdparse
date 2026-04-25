@@ -569,3 +569,97 @@ def test_parse_raises_for_unknown_file():
     from dwdparse.api import parse
     with pytest.raises(ValueError, match="No parser found"):
         list(parse('totally_unknown_file.dat'))
+
+
+@pytest.mark.parametrize('parser_cls', [
+    MOSMIXParser, SYNOPParser, CurrentObservationsParser])
+def test_sanitize_passes_through_in_bounds_values(parser_cls):
+    record = {
+        'precipitation': 0.0,
+        'wind_speed': 0.0,
+        'wind_direction': 0.0,
+        'cloud_cover': 100.0,
+        'relative_humidity': 100.0,
+        'sunshine': 3600,
+    }
+    parser_cls().sanitize_record(record)
+    assert record == {
+        'precipitation': 0.0,
+        'wind_speed': 0.0,
+        'wind_direction': 0.0,
+        'cloud_cover': 100.0,
+        'relative_humidity': 100.0,
+        'sunshine': 3600,
+    }
+
+
+@pytest.mark.parametrize('parser_cls', [
+    MOSMIXParser, SYNOPParser, CurrentObservationsParser])
+def test_sanitize_passes_through_none(parser_cls):
+    record = {
+        'precipitation': None,
+        'wind_speed': None,
+        'wind_direction': None,
+        'cloud_cover': None,
+        'relative_humidity': None,
+        'sunshine': None,
+    }
+    parser_cls().sanitize_record(record)
+    assert all(v is None for v in record.values())
+
+
+@pytest.mark.parametrize('parser_cls', [
+    MOSMIXParser, SYNOPParser, CurrentObservationsParser])
+def test_sanitize_clamps_negative_values(parser_cls):
+    record = {
+        'precipitation': -1.0,
+        'wind_speed': -0.5,
+        'cloud_cover': -10.0,
+        'relative_humidity': -5.0,
+        'sunshine': -1,
+    }
+    parser_cls().sanitize_record(record)
+    assert record['precipitation'] == 0
+    assert record['wind_speed'] == 0
+    assert record['cloud_cover'] == 0
+    assert record['relative_humidity'] == 0
+    assert record['sunshine'] == 0
+
+
+@pytest.mark.parametrize('parser_cls', [
+    MOSMIXParser, SYNOPParser, CurrentObservationsParser])
+def test_sanitize_clamps_overflow_values(parser_cls):
+    record = {
+        'cloud_cover': 110.0,
+        'relative_humidity': 105.0,
+        'sunshine': 3700,
+    }
+    parser_cls().sanitize_record(record)
+    assert record['cloud_cover'] == 100
+    assert record['relative_humidity'] == 100
+    assert record['sunshine'] == 3600
+
+
+@pytest.mark.parametrize('value,expected', [
+    (725.0, 5.0),    # 725 % 360
+    (-10.0, 350.0),  # negative wraps via modulo
+    (360.0, 360.0),  # exactly 360 left alone
+])
+def test_sanitize_wind_direction_modulo(value, expected):
+    record = {'wind_direction': value}
+    MOSMIXParser().sanitize_record(record)
+    assert record['wind_direction'] == expected
+
+
+def test_sanitize_synop_time_period_fields():
+    record = {
+        'precipitation_60': -1.0,
+        'sunshine_30': 4000,
+        'wind_direction_10': -5.0,
+        'wind_speed_60': -2.0,
+    }
+    SYNOPParser().sanitize_record(record)
+    assert record['precipitation_60'] == 0
+    assert record['sunshine_30'] == 3600
+    assert record['wind_direction_10'] == 355.0
+    assert record['wind_speed_60'] == 0

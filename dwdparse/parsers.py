@@ -58,6 +58,46 @@ class Parser:
         prefix, tag = tag.split(':')
         return element.tag == f'{{{ns[prefix]}}}{tag}'
 
+    def sanitize_record(self, record):
+        for field, value in list(record.items()):
+            if value is None:
+                continue
+            fixed = self._sanitize_value(field, value)
+            if fixed != value:
+                self.logger.warning(
+                    "Fixing out-of-bounds %s value %r -> %r in %s",
+                    field, value, fixed, record)
+                record[field] = fixed
+
+    def sanitize_records(self, records):
+        for record in records:
+            self.sanitize_record(record)
+            yield record
+
+    @staticmethod
+    def _sanitize_value(field, value):
+        # Strip a trailing '_<seconds>' time-period suffix used by SYNOPParser
+        # (e.g. precipitation_60, sunshine_30) so the same rules apply to both
+        # the bare and the suffixed forms.
+        base = re.sub(r'_\d+$', '', field)
+        if base in ('precipitation', 'wind_speed'):
+            if value < 0:
+                return 0
+        elif base == 'wind_direction':
+            if value < 0 or value > 360:
+                return value % 360
+        elif base in ('cloud_cover', 'relative_humidity'):
+            if value < 0:
+                return 0
+            if value > 100:
+                return 100
+        elif base == 'sunshine':
+            if value < 0:
+                return 0
+            if value > 3600:
+                return 3600
+        return value
+
 
 class MOSMIXParser(Parser):
 
@@ -185,26 +225,6 @@ class MOSMIXParser(Parser):
     def parse_solar(self, value):
         return kj_per_m2_to_j_per_m2(float(value))
 
-    def sanitize_records(self, records):
-        for r in records:
-            if r['precipitation'] and r['precipitation'] < 0:
-                self.logger.warning("Fixing negative precipitation: %s", r)
-                r['precipitation'] = 0
-            if r['wind_speed'] and r['wind_speed'] < 0:
-                self.logger.warning("Fixing negative wind speed: %s", r)
-                r['wind_speed'] = 0
-            if r['wind_direction'] and r['wind_direction'] > 360:
-                self.logger.warning(
-                    "Fixing out-of-bounds wind direction: %s", r)
-                r['wind_direction'] -= 360
-            if r['cloud_cover'] and r['cloud_cover'] < 0:
-                self.logger.warning("Fixing negative cloud cover: %s", r)
-                r['cloud_cover'] = 0
-            if r['cloud_cover'] and r['cloud_cover'] > 100:
-                self.logger.warning("Fixing overflown cloud cover: %s", r)
-                r['cloud_cover'] = 100
-            yield r
-
 
 class SYNOPParser(Parser):
 
@@ -325,13 +345,6 @@ class SYNOPParser(Parser):
         if value and not record.get('condition'):
             record['condition'] = synop_past_weather_code_to_condition(value)
 
-    def sanitize_record(self, record):
-        for field in list(record):
-            if field.startswith('precipitation_') and (record[field] or 0) < 0:
-                record[field] = None
-        if (record.get('cloud_cover') or 0) > 100:
-            record['cloud_cover'] = None
-
 
 class CurrentObservationsParser(Parser):
 
@@ -407,20 +420,6 @@ class CurrentObservationsParser(Parser):
         for element, converter in self.CONVERTERS.items():
             if record[element] is not None:
                 record[element] = converter(record[element])
-
-    def sanitize_record(self, record):
-        if record['cloud_cover'] and record['cloud_cover'] > 100:
-            self.logger.warning(
-                "Ignoring unphysical cloud cover value: %s", record)
-            record['cloud_cover'] = None
-        if record['relative_humidity'] and record['relative_humidity'] > 100:
-            self.logger.warning(
-                "Ignoring unphysical relative humidity value: %s", record)
-            record['relative_humidity'] = None
-        if record['sunshine'] and record['sunshine'] > 3600:
-            self.logger.warning(
-                "Ignoring unphysical sunshine value: %s", record)
-            record['sunshine'] = None
 
 
 class ObservationsParser(Parser):
@@ -911,10 +910,6 @@ class RadarParser(Parser):
     WIDTH = 1100
     PRECISION = 3
     FIELD_NAME = 'precipitation_5'
-
-    @property
-    def data_length(self):
-        return self.BYTES_PER_PIXEL * self.HEIGHT * self.WIDTH
 
     def parse(self, path):
         with tarfile.open(path, 'r') as tar:

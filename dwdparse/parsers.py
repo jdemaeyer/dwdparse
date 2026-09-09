@@ -214,8 +214,8 @@ class MOSMIXParser(Parser):
         }
         # Turn dict of lists into list of dicts
         return (
-            {**base_record, **dict(zip(records, row))}
-            for row in zip(*records.values())
+            {**base_record, **dict(zip(records, row, strict=True))}
+            for row in zip(*records.values(), strict=True)
         )
 
     def _convert(self, value, converter):
@@ -660,6 +660,7 @@ class PrecipitationObservationsParser(ObservationsParser):
             itertools.chain([None], a),
             b,
             itertools.chain(c, [None]),
+            strict=False,
         )
 
     def fill_wrtr(self, last_row, row, next_row):

@@ -17,16 +17,15 @@ def test_synop_current_weather_code_to_condition():
         198: None,
         199: 'thunderstorm',
         500: None,
-
-        16.0: 'dry',
-        17.0: 'thunderstorm',
-        18.0: 'dry',
     }
     for code, exp_condition in expected.items():
         assert synop_current_weather_code_to_condition(code) == exp_condition
-    # Can't explicitly test via `expected` dict as `0` and `0.0` hash to the
-    # same value
+    # Can't explicitly test these via `expected` dict as `17` and `17.0`
+    # hash to the same value, silently dropping one of them
     assert synop_current_weather_code_to_condition(0.0) == 'dry'
+    assert synop_current_weather_code_to_condition(16.0) == 'dry'
+    assert synop_current_weather_code_to_condition(17.0) == 'thunderstorm'
+    assert synop_current_weather_code_to_condition(18.0) == 'dry'
 
 
 def test_convert_record():

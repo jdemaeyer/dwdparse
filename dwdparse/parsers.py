@@ -47,7 +47,7 @@ class Parser:
             self._logger = logging.getLogger(name)
         return self._logger
 
-    def parse(self, path):
+    def parse(self, path, **extra):
         raise NotImplementedError
 
     def get_extra_urls(self, path):

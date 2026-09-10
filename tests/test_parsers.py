@@ -8,6 +8,7 @@ from dwdparse.parsers import (
     CurrentObservationsParser,
     DewPointObservationsParser,
     MOSMIXParser,
+    Parser,
     PrecipitationObservationsParser,
     PressureObservationsParser,
     RadarParser,
@@ -685,3 +686,10 @@ def test_sanitize_synop_time_period_fields():
     assert record['sunshine_30'] == 3600
     assert record['wind_direction_10'] == 355.0
     assert record['wind_speed_60'] == 0
+
+
+def test_parser_parse_accepts_the_extras_api_forwards():
+    """`parse_url` forwards whatever `get_extra_urls` asked for, so the base
+    signature has to admit them even though only some parsers use them."""
+    with pytest.raises(NotImplementedError):
+        Parser().parse('some.zip', meta_path='meta.zip')

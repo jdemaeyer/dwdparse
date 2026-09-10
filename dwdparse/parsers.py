@@ -517,6 +517,9 @@ class ObservationsParser(Parser):
             if date > timestamp:
                 break
             info = lat_lon_height_name
+        if info is None:
+            raise ValueError(
+                f"No station metadata for {timestamp.isoformat()}")
         return info
 
     def parse_elements(self, row, lat, lon, height):
@@ -759,6 +762,9 @@ class PressureObservationsParser(ObservationsParser):
     def parse_elements(self, row, lat, lon, height):
         elements = super().parse_elements(row, lat, lon, height)
         if not elements['pressure_msl'] and elements['pressure_station']:
+            if height is None:
+                raise ValueError(
+                    "Cannot approximate pressure_msl without a height")
             # Some stations do not record reduced pressure, but do record
             # pressure at station height. We can approximate the pressure at
             # mean sea level through the barometric formula. The error of this
@@ -829,7 +835,10 @@ class RADOLANParser(Parser):
     def parse(self, path):
         with tarfile.open(path, 'r:bz2') as tar:
             for filename in sorted(tar.getnames()):
-                yield self.parse_single(tar.extractfile(filename))
+                f = tar.extractfile(filename)
+                if f is None:
+                    continue
+                yield self.parse_single(f)
 
     def parse_single(self, f):
         product, timestamp, offset = self.parse_header(f)
@@ -922,7 +931,10 @@ class RadarParser(Parser):
     def parse(self, path):
         with tarfile.open(path, 'r') as tar:
             for filename in sorted(tar.getnames()):
-                yield self.parse_single(tar.extractfile(filename))
+                f = tar.extractfile(filename)
+                if f is None:
+                    continue
+                yield self.parse_single(f)
 
     def parse_single(self, f):
         try:

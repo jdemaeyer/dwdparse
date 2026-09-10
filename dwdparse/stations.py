@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 
 from dwdparse.utils import fetch
@@ -14,11 +15,14 @@ class StationIDConverter:
         'statlex_html.html?view=nasPublication')
     STATION_TYPES = ['SY', 'MN']
 
-    def __init__(self):
-        self.dwd_to_wmo = {}
-        self.wmo_to_dwd = {}
+    def __init__(self) -> None:
+        self.dwd_to_wmo: dict[str, str] = {}
+        self.wmo_to_dwd: dict[str, str] = {}
 
-    def load(self, path=None):
+    def load(
+        self,
+        path: str | os.PathLike[str] | None = None,
+    ) -> None:
         logger.info("Updating station ID mappings")
         if path:
             with open(path) as f:
@@ -27,9 +31,9 @@ class StationIDConverter:
             station_list = fetch(self.STATION_LIST_URL).decode()
         self.parse_station_list(station_list)
 
-    def parse_station_list(self, html):
-        dwd_to_wmo = {}
-        wmo_to_dwd = {}
+    def parse_station_list(self, html: str) -> None:
+        dwd_to_wmo: dict[str, str] = {}
+        wmo_to_dwd: dict[str, str] = {}
         for line in re.findall(r'(?s)<tr>.*?</tr>', html):
             values = re.findall(r'(?s)<td[^>]*?>\s*(.*?)\s*</td>', line)
             if len(values) != 11:
@@ -45,10 +49,10 @@ class StationIDConverter:
         self.wmo_to_dwd = wmo_to_dwd
         logger.info("Parsed %d station ID mappings", len(dwd_to_wmo))
 
-    def convert_to_wmo(self, dwd_id):
+    def convert_to_wmo(self, dwd_id: str) -> str | None:
         return self.dwd_to_wmo.get(dwd_id)
 
-    def convert_to_dwd(self, wmo_id):
+    def convert_to_dwd(self, wmo_id: str) -> str | None:
         return self.wmo_to_dwd.get(wmo_id)
 
 

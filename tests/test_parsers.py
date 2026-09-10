@@ -1,4 +1,9 @@
 import datetime
+import io
+import tarfile
+import xml.etree.ElementTree as ET
+from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -8,6 +13,7 @@ from dwdparse.parsers import (
     CurrentObservationsParser,
     DewPointObservationsParser,
     MOSMIXParser,
+    Parser,
     PrecipitationObservationsParser,
     PressureObservationsParser,
     RadarParser,
@@ -29,7 +35,7 @@ from .utils import is_subset
 utc = datetime.timezone.utc
 
 
-def test_mosmix_parser(data_dir):
+def test_mosmix_parser(data_dir: Path) -> None:
     records = list(MOSMIXParser().parse(data_dir / 'MOSMIX_L_LATEST.kmz'))
     assert len(records) == 247
     assert records[0] == {
@@ -85,7 +91,7 @@ def test_mosmix_parser(data_dir):
     assert records[2]['precipitation_probability_6h'] == 85.0
 
 
-def test_synop_parser(data_dir):
+def test_synop_parser(data_dir: Path) -> None:
     records = list(SYNOPParser().parse(data_dir / 'synop.json.bz2'))
     assert len(records) == 3
     assert records[0] == {
@@ -133,7 +139,7 @@ def test_synop_parser(data_dir):
     assert records[2]['dwd_station_id'] == '05484'
 
 
-def test_current_observation_parser(data_dir):
+def test_current_observation_parser(data_dir: Path) -> None:
     records = list(
         CurrentObservationsParser().parse(
             data_dir / '10315-BEOB.csv',
@@ -192,7 +198,7 @@ def test_current_observation_parser(data_dir):
     }
 
 
-def test_observations_parser_parses_metadata(data_dir):
+def test_observations_parser_parses_metadata(data_dir: Path) -> None:
     p = WindObservationsParser()
     metadata = {
         'observation_type': 'historical',
@@ -210,14 +216,14 @@ def test_observations_parser_parses_metadata(data_dir):
         assert is_subset(metadata, record)
 
 
-def test_observations_parser_handles_missing_values(data_dir):
+def test_observations_parser_handles_missing_values(data_dir: Path) -> None:
     p = WindObservationsParser()
     records = list(p.parse(data_dir / 'observations_recent_FF_akt.zip'))
     assert records[5]['wind_direction'] == 90
     assert records[5]['wind_speed'] is None
 
 
-def test_observations_parser_handles_ignored_values(data_dir):
+def test_observations_parser_handles_ignored_values(data_dir: Path) -> None:
     p = WindObservationsParser()
     p.ignored_values = {'wind_direction': ['80']}
     records = list(p.parse(data_dir / 'observations_recent_FF_akt.zip'))
@@ -225,7 +231,7 @@ def test_observations_parser_handles_ignored_values(data_dir):
     assert records[0]['wind_speed'] == 1.6
 
 
-def test_observations_parser_handles_location_changes(data_dir):
+def test_observations_parser_handles_location_changes(data_dir: Path) -> None:
     p = WindObservationsParser()
     path = data_dir / 'observations_recent_FF_location_change_akt.zip'
     records = list(p.parse(path))
@@ -235,17 +241,19 @@ def test_observations_parser_handles_location_changes(data_dir):
         {'lat': 50.0, 'lon': 13.0, 'height': 345.0}, records[-1])
 
 
-def test_observations_parser_skip_timestamp(data_dir):
+def test_observations_parser_skip_timestamp(data_dir: Path) -> None:
     p = WindObservationsParser()
     records = list(p.parse(data_dir / 'observations_recent_FF_akt.zip'))
     assert len(records) == 10
-    p.skip_timestamp = lambda ts: ts.year != 2019
+    p.skip_timestamp = (  # type: ignore[method-assign]
+        lambda timestamp: timestamp.year != 2019
+    )
     records = list(p.parse(data_dir / 'observations_recent_FF_akt.zip'))
     assert len(records) == 1
     assert records[0]['timestamp'].year == 2019
 
 
-def test_ten_minutes_observations_parser_extra_urls(data_dir):
+def test_ten_minutes_observations_parser_extra_urls(data_dir: Path) -> None:
     class TestParser(TenMinutesObservationsParser):
         META_DATA_URL = 'test_{dwd_station_id}.zip'
 
@@ -258,7 +266,15 @@ def test_ten_minutes_observations_parser_extra_urls(data_dir):
 
 
 def _test_parser(
-        cls, path, first, last, count=10, first_idx=0, last_idx=-1, **kwargs):
+    cls: type[Parser],
+    path: Path,
+    first: dict[str, Any],
+    last: dict[str, Any],
+    count: int = 10,
+    first_idx: int = 0,
+    last_idx: int = -1,
+    **kwargs: Any,
+) -> None:
     p = cls()
     records = list(p.parse(path, **kwargs))
     first['timestamp'] = datetime.datetime.strptime(
@@ -270,7 +286,7 @@ def _test_parser(
     assert is_subset(last, records[last_idx])
 
 
-def test_cloud_cover_observations_parser(data_dir):
+def test_cloud_cover_observations_parser(data_dir: Path) -> None:
     _test_parser(
         CloudCoverObservationsParser,
         data_dir / 'observations_recent_N_akt.zip',
@@ -279,7 +295,7 @@ def test_cloud_cover_observations_parser(data_dir):
     )
 
 
-def test_dew_point_observations_parser(data_dir):
+def test_dew_point_observations_parser(data_dir: Path) -> None:
     _test_parser(
         DewPointObservationsParser,
         data_dir / 'observations_recent_TD_akt.zip',
@@ -288,7 +304,7 @@ def test_dew_point_observations_parser(data_dir):
     )
 
 
-def test_temperature_observations_parser(data_dir):
+def test_temperature_observations_parser(data_dir: Path) -> None:
     _test_parser(
         TemperatureObservationsParser,
         data_dir / 'observations_recent_TU_akt.zip',
@@ -299,7 +315,7 @@ def test_temperature_observations_parser(data_dir):
     )
 
 
-def test_precipitation_observations_parser(data_dir):
+def test_precipitation_observations_parser(data_dir: Path) -> None:
     _test_parser(
         PrecipitationObservationsParser,
         data_dir / 'observations_recent_RR_akt.zip',
@@ -317,7 +333,7 @@ def test_precipitation_observations_parser(data_dir):
     )
 
 
-def test_precipitation_observations_parser_with_neighbors():
+def test_precipitation_observations_parser_with_neighbors() -> None:
     parser = PrecipitationObservationsParser()
     assert list(parser.with_neighbors('')) == []
     assert list(parser.with_neighbors('A')) == [(None, 'A', None)]
@@ -340,7 +356,7 @@ def test_precipitation_observations_parser_with_neighbors():
     ]
 
 
-def test_visibility_observations_parser(data_dir):
+def test_visibility_observations_parser(data_dir: Path) -> None:
     _test_parser(
         VisibilityObservationsParser,
         data_dir / 'observations_recent_VV_akt.zip',
@@ -349,7 +365,7 @@ def test_visibility_observations_parser(data_dir):
     )
 
 
-def test_wind_observations_parser(data_dir):
+def test_wind_observations_parser(data_dir: Path) -> None:
     _test_parser(
         WindObservationsParser,
         data_dir / 'observations_recent_FF_akt.zip',
@@ -360,7 +376,7 @@ def test_wind_observations_parser(data_dir):
     )
 
 
-def test_wind_gusts_observations_parser(data_dir):
+def test_wind_gusts_observations_parser(data_dir: Path) -> None:
     _test_parser(
         WindGustsObservationsParser,
         data_dir / 'observations_recent_extrema_wind_akt.zip',
@@ -372,7 +388,7 @@ def test_wind_gusts_observations_parser(data_dir):
     )
 
 
-def test_sunshine_observations_parser(data_dir):
+def test_sunshine_observations_parser(data_dir: Path) -> None:
     _test_parser(
         SunshineObservationsParser,
         data_dir / 'observations_recent_SD_akt.zip',
@@ -382,7 +398,7 @@ def test_sunshine_observations_parser(data_dir):
     )
 
 
-def test_pressure_observations_parser(data_dir):
+def test_pressure_observations_parser(data_dir: Path) -> None:
     _test_parser(
         PressureObservationsParser,
         data_dir / 'observations_recent_P0_hist.zip',
@@ -391,7 +407,9 @@ def test_pressure_observations_parser(data_dir):
     )
 
 
-def test_pressure_observations_parser_approximates_pressure_msl(data_dir):
+def test_pressure_observations_parser_approximates_pressure_msl(
+    data_dir: Path,
+) -> None:
     p = PressureObservationsParser()
     records = list(p.parse(data_dir / 'observations_recent_P0_hist.zip'))
     # The actual reduced pressure deleted from the test observation file was
@@ -399,7 +417,7 @@ def test_pressure_observations_parser_approximates_pressure_msl(data_dir):
     assert records[4]['pressure_msl'] == 102260
 
 
-def test_solar_radiation_observations_parser(data_dir):
+def test_solar_radiation_observations_parser(data_dir: Path) -> None:
     _test_parser(
         SolarRadiationObservationsParser,
         data_dir / '10minutenwerte_SOLAR_01766_now.zip',
@@ -410,7 +428,7 @@ def test_solar_radiation_observations_parser(data_dir):
     )
 
 
-def test_radolan_parser(data_dir):
+def test_radolan_parser(data_dir: Path) -> None:
     p = RADOLANParser()
     records = list(p.parse(data_dir / 'DE1200_RV2305081330.tar.bz2'))
     assert len(records) == 2
@@ -442,7 +460,7 @@ def test_radolan_parser(data_dir):
     ]
 
 
-def test_radar_parser(data_dir):
+def test_radar_parser(data_dir: Path) -> None:
     p = RadarParser()
     records = list(p.parse(data_dir / 'composite_rv_20250923_0855.tar'))
     assert len(records) == 2
@@ -474,7 +492,7 @@ def test_radar_parser(data_dir):
     ]
 
 
-def test_cap_parser(data_dir):
+def test_cap_parser(data_dir: Path) -> None:
     p = CAPParser()
     fn = 'Z_CAP_C_EDZW_LATEST_PVW_STATUS_PREMIUMDWD_COMMUNEUNION_MUL.zip'
     records = list(p.parse(data_dir / fn))
@@ -516,7 +534,7 @@ def test_cap_parser(data_dir):
     }
 
 
-def test_cap_parser_test_status(data_dir):
+def test_cap_parser_test_status(data_dir: Path) -> None:
     p = CAPParser()
     fn = 'Z_CAP_with_test.zip'
     records = list(p.parse(data_dir / fn))
@@ -525,7 +543,7 @@ def test_cap_parser_test_status(data_dir):
     assert records[0]['status'] == 'test'
 
 
-def test_get_parser():
+def test_get_parser() -> None:
     synop_with_timestamp = (
         'Z__C_EDZW_20200617114802_bda01,synop_bufr_GER_999999_999999__MW_617'
         '.json.bz2')
@@ -561,11 +579,11 @@ def test_get_parser():
         assert get_parser(filename) is expected_parser
 
 
-def test_get_parser_unknown_filename():
+def test_get_parser_unknown_filename() -> None:
     assert get_parser('totally_unknown_file.dat') is None
 
 
-def test_parse_raises_for_unknown_file():
+def test_parse_raises_for_unknown_file() -> None:
     from dwdparse.api import parse
     with pytest.raises(ValueError, match="No parser found"):
         list(parse('totally_unknown_file.dat'))
@@ -573,7 +591,9 @@ def test_parse_raises_for_unknown_file():
 
 @pytest.mark.parametrize('parser_cls', [
     MOSMIXParser, SYNOPParser, CurrentObservationsParser])
-def test_sanitize_passes_through_in_bounds_values(parser_cls):
+def test_sanitize_passes_through_in_bounds_values(
+    parser_cls: type[Parser],
+) -> None:
     record = {
         'precipitation': 0.0,
         'wind_speed': 0.0,
@@ -595,7 +615,7 @@ def test_sanitize_passes_through_in_bounds_values(parser_cls):
 
 @pytest.mark.parametrize('parser_cls', [
     MOSMIXParser, SYNOPParser, CurrentObservationsParser])
-def test_sanitize_passes_through_none(parser_cls):
+def test_sanitize_passes_through_none(parser_cls: type[Parser]) -> None:
     record = {
         'precipitation': None,
         'wind_speed': None,
@@ -610,7 +630,7 @@ def test_sanitize_passes_through_none(parser_cls):
 
 @pytest.mark.parametrize('parser_cls', [
     MOSMIXParser, SYNOPParser, CurrentObservationsParser])
-def test_sanitize_clamps_negative_values(parser_cls):
+def test_sanitize_clamps_negative_values(parser_cls: type[Parser]) -> None:
     record = {
         'precipitation': -1.0,
         'wind_speed': -0.5,
@@ -628,7 +648,7 @@ def test_sanitize_clamps_negative_values(parser_cls):
 
 @pytest.mark.parametrize('parser_cls', [
     MOSMIXParser, SYNOPParser, CurrentObservationsParser])
-def test_sanitize_clamps_overflow_values(parser_cls):
+def test_sanitize_clamps_overflow_values(parser_cls: type[Parser]) -> None:
     record = {
         'cloud_cover': 110.0,
         'relative_humidity': 105.0,
@@ -645,13 +665,15 @@ def test_sanitize_clamps_overflow_values(parser_cls):
     (-10.0, 350.0),  # negative wraps via modulo
     (360.0, 360.0),  # exactly 360 left alone
 ])
-def test_sanitize_wind_direction_modulo(value, expected):
+def test_sanitize_wind_direction_modulo(value: float, expected: float) -> None:
     record = {'wind_direction': value}
     MOSMIXParser().sanitize_record(record)
     assert record['wind_direction'] == expected
 
 
-def test_pressure_observations_approximation_for_missing(data_dir):
+def test_pressure_observations_approximation_for_missing(
+    data_dir: Path,
+) -> None:
     """pressure_msl == None (DWD's -999 sentinel) is approximated from the
     station-level pressure via the barometric formula."""
     p = PressureObservationsParser()
@@ -662,7 +684,7 @@ def test_pressure_observations_approximation_for_missing(data_dir):
     assert records[0]['pressure_msl'] == 102120
 
 
-def test_pressure_observations_approximation_for_zero():
+def test_pressure_observations_approximation_for_zero() -> None:
     """pressure_msl == 0 is treated as a data error and triggers the same
     barometric approximation as a missing value."""
     p = PressureObservationsParser()
@@ -673,7 +695,39 @@ def test_pressure_observations_approximation_for_zero():
     assert elements['pressure_msl'] > 0
 
 
-def test_sanitize_synop_time_period_fields():
+def test_pressure_observations_approximation_without_height() -> None:
+    """Used to multiply by None. The formula cannot be evaluated without a
+    height, so say so rather than emitting a record with no pressure."""
+    p = PressureObservationsParser()
+    with pytest.raises(ValueError, match="without a height"):
+        p.parse_elements(
+            {'   P': '0.0', '  P0': '980.9'},
+            lat=None, lon=None, height=None)
+
+
+def test_observations_parser_rejects_timestamp_before_metadata() -> None:
+    """_station_params returned None here, which the caller unpacked
+    into four values."""
+    p = WindObservationsParser()
+    history = {
+        datetime.datetime(2020, 1, 1, tzinfo=utc): (50.0, 9.0, 339.5, 'X'),
+    }
+    with pytest.raises(ValueError, match="No station metadata"):
+        p._station_params(datetime.datetime(2019, 1, 1, tzinfo=utc), history)
+
+
+def test_radolan_parser_skips_non_file_tar_members(tmp_path: Path) -> None:
+    """tarfile.extractfile returns None for members that are not regular
+    files, such as a directory."""
+    archive = tmp_path / 'only_a_directory.tar.bz2'
+    with tarfile.open(archive, 'w:bz2') as out:
+        info = tarfile.TarInfo('a_directory')
+        info.type = tarfile.DIRTYPE
+        out.addfile(info)
+    assert list(RADOLANParser().parse(archive)) == []
+
+
+def test_sanitize_synop_time_period_fields() -> None:
     record = {
         'precipitation_60': -1.0,
         'sunshine_30': 4000,
@@ -685,3 +739,144 @@ def test_sanitize_synop_time_period_fields():
     assert record['sunshine_30'] == 3600
     assert record['wind_direction_10'] == 355.0
     assert record['wind_speed_60'] == 0
+
+
+MOSMIX_NS = {
+    'kml': 'http://www.opengis.net/kml/2.2',
+    'dwd': (
+        'https://opendata.dwd.de/weather/lib/'
+        'pointforecast_dwd_extension_V1_0.xsd'),
+}
+
+
+def _placemark(body: str = '') -> ET.Element:
+    return ET.fromstring(
+        '<kml:Placemark xmlns:kml="http://www.opengis.net/kml/2.2">'
+        f'{body}</kml:Placemark>')
+
+
+def test_mosmix_parser_skips_station_without_coordinates(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A station without coordinates is skipped with a warning."""
+    place = _placemark(
+        '<kml:name>01049</kml:name>'
+        '<kml:description>Test Station</kml:description>')
+    records = MOSMIXParser().parse_station(place, MOSMIX_NS, [], 'source')
+    assert records == []
+    assert "Ignoring station without coordinates" in caplog.text
+
+
+def test_mosmix_parser_rejects_station_without_name() -> None:
+    """Used to fail with "'NoneType' object has no attribute 'text'",
+    without naming the element."""
+    with pytest.raises(ValueError, match="Missing kml:name"):
+        MOSMIXParser().parse_station(_placemark(), MOSMIX_NS, [], 'source')
+
+
+def test_mosmix_parser_rejects_station_without_description() -> None:
+    place = _placemark('<kml:name>01049</kml:name>')
+    with pytest.raises(ValueError, match="Missing kml:description"):
+        MOSMIXParser().parse_station(place, MOSMIX_NS, [], 'source')
+
+
+def test_mosmix_parser_allows_empty_name_and_description() -> None:
+    """Empty elements are data, not errors: only a missing one raises."""
+    place = _placemark(
+        '<kml:name/>'
+        '<kml:description/>'
+        '<kml:Point><kml:coordinates>9.0,50.0,100.0</kml:coordinates>'
+        '</kml:Point>'
+        '<kml:ExtendedData/>')
+    records = list(
+        MOSMIXParser().parse_station(
+            place, MOSMIX_NS, [datetime.datetime(2024, 1, 1, tzinfo=utc)],
+            'source'))
+    assert len(records) == 1
+    assert records[0]['station_name'] is None
+    assert records[0]['wmo_station_id'] is None
+
+
+def test_cap_parser_skips_event_code_with_empty_value_name() -> None:
+    """An empty valueName must not abort the alert: the remaining
+    eventCode elements still have to be searched for II."""
+    ns = 'urn:oasis:names:tc:emergency:cap:1.2'
+    info = ET.fromstring(
+        f'<info xmlns="{ns}">'
+        '<eventCode><valueName/><value>x</value></eventCode>'
+        '<eventCode><valueName>II</valueName><value>42</value></eventCode>'
+        '</info>')
+    assert CAPParser()._parse_event_code(info) == 42
+
+
+def test_mosmix_parser_rejects_empty_timestamp() -> None:
+    """Used to fail inside re.sub, which will not take a None."""
+    steps = ET.fromstring(
+        '<TimeSteps xmlns:dwd="{}"><dwd:TimeStep/></TimeSteps>'.format(
+            MOSMIX_NS['dwd']))
+    with pytest.raises(ValueError, match="Empty dwd:TimeStep element"):
+        MOSMIXParser().parse_timestamps(steps, MOSMIX_NS)
+
+
+def test_cap_parser_rejects_empty_event_code_value() -> None:
+    """Used to fail with int(None). An empty valueName is still skipped,
+    but an empty value under the name we want is not recoverable."""
+    ns = 'urn:oasis:names:tc:emergency:cap:1.2'
+    info = ET.fromstring(
+        f'<info xmlns="{ns}"><eventCode>'
+        '<valueName>II</valueName><value/></eventCode></info>')
+    with pytest.raises(ValueError, match="Empty cap:value element"):
+        CAPParser()._parse_event_code(info)
+
+
+def test_cap_parser_rejects_blank_event_code_value() -> None:
+    """Whitespace-only text used to fail anonymously inside int()."""
+    ns = 'urn:oasis:names:tc:emergency:cap:1.2'
+    info = ET.fromstring(
+        f'<info xmlns="{ns}"><eventCode>'
+        '<valueName>II</valueName><value>   </value></eventCode></info>')
+    with pytest.raises(ValueError, match="Empty cap:value element"):
+        CAPParser()._parse_event_code(info)
+
+
+def test_mosmix_parser_rejects_empty_product_id() -> None:
+    """An empty ProductID used to leave source unset, so the next element
+    reported "Unexpected issue time w/o ID" and blamed the wrong one."""
+    kmz = (
+        '<kml:kml xmlns:kml="{kml}" xmlns:dwd="{dwd}">'
+        '<dwd:ProductID/><dwd:IssueTime>2024-01-01T00:00:00Z</dwd:IssueTime>'
+        '</kml:kml>').format(**MOSMIX_NS)
+    with pytest.raises(ValueError, match="Empty dwd:ProductID element"):
+        list(MOSMIXParser()._parse_stream(io.BytesIO(kmz.encode())))
+
+
+def test_mosmix_parser_rejects_empty_issue_time() -> None:
+    """Used to fail on str concatenation with a None."""
+    kmz = (
+        '<kml:kml xmlns:kml="{kml}" xmlns:dwd="{dwd}">'
+        '<dwd:ProductID>P</dwd:ProductID><dwd:IssueTime/>'
+        '</kml:kml>').format(**MOSMIX_NS)
+    with pytest.raises(ValueError, match="Empty dwd:IssueTime element"):
+        list(MOSMIXParser()._parse_stream(io.BytesIO(kmz.encode())))
+
+
+def test_cap_parser_rejects_empty_language() -> None:
+    """Used to fail on str.split with a None."""
+    ns = 'urn:oasis:names:tc:emergency:cap:1.2'
+    info = ET.fromstring(f'<info xmlns="{ns}"><language/></info>')
+    with pytest.raises(ValueError, match="Empty cap:language element"):
+        CAPParser()._parse_info({}, info)
+
+
+def test_parser_text_does_not_strip() -> None:
+    """dwd:value is a padded, whitespace-separated list, so the text has to
+    come back as it was."""
+    el = ET.fromstring('<value>  1 2 3  </value>')
+    assert Parser._text(el, 'value') == '  1 2 3  '
+
+
+def test_parser_parse_accepts_the_extras_api_forwards() -> None:
+    """`parse_url` forwards whatever `get_extra_urls` asked for, so the base
+    signature has to admit them even though only some parsers use them."""
+    with pytest.raises(NotImplementedError):
+        Parser().parse('some.zip', meta_path='meta.zip')

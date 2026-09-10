@@ -1,56 +1,60 @@
-def celsius_to_kelvin(temperature):
+from collections.abc import Callable, Mapping
+from typing import Any
+
+
+def celsius_to_kelvin(temperature: float) -> float:
     return round(temperature + 273.15, 2)
 
 
-def eighths_to_percent(eighths):
+def eighths_to_percent(eighths: float) -> int:
     return int(eighths / 8 * 100)
 
 
-def hpa_to_pa(pressure):
+def hpa_to_pa(pressure: float) -> int:
     return int(pressure * 100)
 
 
-def kelvin_to_celsius(temperature):
+def kelvin_to_celsius(temperature: float) -> float:
     return round(temperature - 273.15, 2)
 
 
-def j_per_cm2_to_j_per_m2(solar):
+def j_per_cm2_to_j_per_m2(solar: float) -> float:
     return solar * 10000
 
 
-def j_per_m2_to_kwh_per_m2(solar):
+def j_per_m2_to_kwh_per_m2(solar: float) -> float:
     return round(solar / 3600000, 3)
 
 
-def kj_per_m2_to_j_per_m2(solar):
+def kj_per_m2_to_j_per_m2(solar: float) -> float:
     return solar * 1000
 
 
-def km_to_m(distance):
+def km_to_m(distance: float) -> float:
     return distance * 1000
 
 
-def kmh_to_ms(speed):
+def kmh_to_ms(speed: float) -> float:
     return round(speed / 3.6, 1)
 
 
-def minutes_to_seconds(duration):
+def minutes_to_seconds(duration: float) -> int:
     return int(duration * 60)
 
 
-def ms_to_kmh(speed):
+def ms_to_kmh(speed: float) -> float:
     return round(speed * 3.6, 1)
 
 
-def pa_to_hpa(pressure):
+def pa_to_hpa(pressure: float) -> float:
     return pressure / 100
 
 
-def seconds_to_minutes(duration):
+def seconds_to_minutes(duration: float) -> float:
     return duration / 60
 
 
-def w_per_m2_to_hourly_j_per_m2(solar):
+def w_per_m2_to_hourly_j_per_m2(solar: float) -> float:
     return solar * 3600
 
 
@@ -145,7 +149,10 @@ CURRENT_OBSERVATIONS_CONDITION_MAP = {
 }
 
 
-def _find(mapping, code):
+def _find(
+    mapping: Mapping[int, str | None],
+    code: float | None,
+) -> str | None:
     """Look up a weather code in a sorted threshold mapping.
 
     Each mapping must end with a sentinel entry whose value is None,
@@ -153,31 +160,36 @@ def _find(mapping, code):
     silently returning the last real value.
     """
     if code is None:
-        return
+        return None
     value = None
     for k, v in mapping.items():
         if k > code:
             return value
         value = v
+    return None
 
 
-def synop_current_weather_code_to_condition(code):
+def synop_current_weather_code_to_condition(code: float | None) -> str | None:
     return _find(SYNOP_CURRENT_CONDITION_MAP, code)
 
 
-def synop_past_weather_code_to_condition(code):
+def synop_past_weather_code_to_condition(code: float | None) -> str | None:
     return _find(SYNOP_PAST_CONDITION_MAP, code)
 
 
-def synop_form_of_precipitation_code_to_condition(code):
+def synop_form_of_precipitation_code_to_condition(
+    code: float | None,
+) -> str | None:
     return _find(SYNOP_FORM_OF_PRECIPITATION_CONDITION_MAP, code)
 
 
-def current_observations_weather_code_to_condition(code):
+def current_observations_weather_code_to_condition(
+    code: float | None,
+) -> str | None:
     return _find(CURRENT_OBSERVATIONS_CONDITION_MAP, code)
 
 
-CONVERTERS = {
+CONVERTERS: dict[str, dict[str, Callable[[float], float]]] = {
     'dwd': {
         'dew_point': kelvin_to_celsius,
         'pressure_msl': pa_to_hpa,
@@ -202,7 +214,10 @@ CONVERTERS = {
 }
 
 
-def convert_record(record, units):
+def convert_record(
+    record: dict[str, Any],
+    units: str,
+) -> dict[str, Any]:
     for field, converter in CONVERTERS[units].items():
         if record.get(field) is not None:
             record[field] = converter(record[field])

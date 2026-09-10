@@ -64,7 +64,7 @@ parser.add_argument(
 )
 
 
-def main():
+def main() -> None:
     configure_logging()
     args = parser.parse_args()
     if args.stations:

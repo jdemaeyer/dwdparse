@@ -1,6 +1,63 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dwdparse"
+description = "Parsers for DWD's open weather data."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Jakob de Maeyer", email = "jakob@naboa.de" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+lean = ["ijson"]
+radar = ["h5py"]
+all = ["h5py", "ijson"]
+
+[project.scripts]
+dwdparse = "dwdparse.cli:main"
+
+[project.urls]
+Source = "https://github.com/jdemaeyer/dwdparse/"
+Tracker = "https://github.com/jdemaeyer/dwdparse/issues/"
+
+[dependency-groups]
+dev = ["pytest", "ruff"]
+type_check = [{ include-group = "dev" }, "mypy==2.3.1"]
+
+[tool.setuptools]
+packages = ["dwdparse"]
+
+[tool.setuptools.package-data]
+dwdparse = ["py.typed"]
+
+[tool.setuptools.dynamic]
+version = { attr = "dwdparse.__version__" }
+
+[tool.mypy]
+python_version = "3.10"
+
+[[tool.mypy.overrides]]
+module = ["h5py.*", "ijson.*", "pyfive.*"]
+ignore_missing_imports = true
+
+# numpy ships stubs that need 3.12, and we check against the 3.10 floor,
+# so skip them whether or not the extras are installed.
+[[tool.mypy.overrides]]
+module = ["numpy.*"]
+ignore_missing_imports = true
+follow_imports = "skip"
+follow_imports_for_stubs = true
+
 [tool.ruff]
 line-length = 79
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = ["B", "E", "F", "I"]

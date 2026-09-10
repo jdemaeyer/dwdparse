@@ -3,11 +3,13 @@ import datetime
 import pytest
 
 from dwdparse.parsers import (
+    _BOUNDED_FIELDS,
     CAPParser,
     CloudCoverObservationsParser,
     CurrentObservationsParser,
     DewPointObservationsParser,
     MOSMIXParser,
+    Parser,
     PrecipitationObservationsParser,
     PressureObservationsParser,
     RadarParser,
@@ -591,6 +593,30 @@ def test_sanitize_passes_through_in_bounds_values(parser_cls):
         'relative_humidity': 100.0,
         'sunshine': 3600,
     }
+
+
+def test_bounded_fields_all_have_a_branch():
+    """The set gates the ladder, so a name in one and not the other is dead."""
+    record = {field: -1 for field in _BOUNDED_FIELDS}
+    Parser().sanitize_record(record)
+    assert all(value != -1 for value in record.values())
+
+
+def test_sanitize_record_skips_only_untouched_fields():
+    """The guard in `sanitize_record` must not skip a field that
+    `_sanitize_value` would have changed."""
+    fields = [
+        *_BOUNDED_FIELDS,
+        *(f'{field}_60' for field in _BOUNDED_FIELDS),
+        'temperature', 'timestamp', 'wind_gust_speed_60',
+        'precipitation_probability_6h', 'precipitation_', 'sunshine_٣',
+        '', '_',
+    ]
+    for field in fields:
+        for value in (-1, 5000):
+            record = {field: value}
+            Parser().sanitize_record(record)
+            assert record[field] == Parser._sanitize_value(field, value)
 
 
 @pytest.mark.parametrize('parser_cls', [

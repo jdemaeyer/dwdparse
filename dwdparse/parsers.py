@@ -34,6 +34,13 @@ from dwdparse.units import (
 )
 
 
+# Fields `_sanitize_value` has bounds for; keep in sync with the ladder there.
+_BOUNDED_FIELDS = {
+    'precipitation', 'wind_speed', 'wind_direction', 'cloud_cover',
+    'relative_humidity', 'sunshine',
+}
+
+
 class SkipRecord(Exception):
     pass
 
@@ -67,6 +74,13 @@ class Parser:
         for field, value in record.items():
             if value is None:
                 continue
+            # Repeats the test in `_sanitize_value` in a cheaper form,
+            # which is only worth having because this loop runs once per
+            # value -- about 26 million times for a full MOSMIX parse. A
+            # digit suffix means a digit at the end, so this cannot skip
+            # a field `_sanitize_value` would have changed.
+            if field not in _BOUNDED_FIELDS and not field[-1:].isdigit():
+                continue
             fixed = self._sanitize_value(field, value)
             if fixed != value:
                 self.logger.warning(
@@ -81,23 +95,26 @@ class Parser:
 
     @staticmethod
     def _sanitize_value(field, value):
-        # Strip a trailing '_<seconds>' time-period suffix (used by
-        # SYNOPParser, e.g. precipitation_60) so the same rules apply to
-        # both the bare and the suffixed forms.
-        head, _, tail = field.rpartition('_')
-        base = head if head and tail.isdigit() else field
-        if base in ('precipitation', 'wind_speed'):
+        if field not in _BOUNDED_FIELDS:
+            # A trailing '_<seconds>' time period (used by SYNOPParser,
+            # e.g. precipitation_60) gets the same bounds as the bare
+            # field.
+            head, _, tail = field.rpartition('_')
+            if not (tail.isdigit() and head in _BOUNDED_FIELDS):
+                return value
+            field = head
+        if field in ('precipitation', 'wind_speed'):
             if value < 0:
                 return 0
-        elif base == 'wind_direction':
+        elif field == 'wind_direction':
             if value < 0 or value > 360:
                 return value % 360
-        elif base in ('cloud_cover', 'relative_humidity'):
+        elif field in ('cloud_cover', 'relative_humidity'):
             if value < 0:
                 return 0
             if value > 100:
                 return 100
-        elif base == 'sunshine':
+        elif field == 'sunshine':
             if value < 0:
                 return 0
             if value > 3600:

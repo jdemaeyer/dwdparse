@@ -59,6 +59,21 @@ class Parser:
         return element.tag == f'{{{ns[prefix]}}}{tag}'
 
     @staticmethod
+    def _text(element, tag):
+        """Return an element's own text, which must not be blank."""
+        if not (element.text or '').strip():
+            raise ValueError(f"Empty {tag} element")
+        return element.text
+
+    @classmethod
+    def _find_text(cls, element, tag, ns, *, allow_empty=False):
+        """Return a required child's text."""
+        child = element.find(tag, ns)
+        if child is None:
+            raise ValueError(f"Missing {tag} element")
+        return child.text if allow_empty else cls._text(child, tag)
+
+    @staticmethod
     def _iso_z_to_utc(timestamp_str):
         # `datetime.fromisoformat` rejected `Z` before Python 3.11.
         return re.sub(r'Z$', '+00:00', timestamp_str)
@@ -144,11 +159,11 @@ class MOSMIXParser(Parser):
             elif self._is_tag(element, 'dwd:ProductID', ns):
                 if source is not None:
                     raise ValueError("Unexpected extra product ID")
-                source = element.text
+                source = self._text(element, 'dwd:ProductID')
             elif self._is_tag(element, 'dwd:IssueTime', ns):
                 if source is None:
                     raise ValueError("Unexpected issue time w/o ID")
-                source += ':' + element.text
+                source += ':' + self._text(element, 'dwd:IssueTime')
             elif self._is_tag(element, 'dwd:ForecastTimeSteps', ns):
                 if timestamps is not None:
                     raise ValueError("Unexpected extra time steps")
@@ -165,32 +180,36 @@ class MOSMIXParser(Parser):
 
     def parse_timestamps(self, steps, ns):
         return [
-            datetime.datetime.fromisoformat(self._iso_z_to_utc(el.text))
+            datetime.datetime.fromisoformat(
+                self._iso_z_to_utc(self._text(el, 'dwd:TimeStep')))
             for el in steps.findall('dwd:TimeStep', ns)
         ]
 
     def parse_station(self, place, ns, timestamps, source):
-        wmo_station_id = place.find('kml:name', ns).text
+        wmo_station_id = self._find_text(
+            place, 'kml:name', ns, allow_empty=True)
         dwd_station_id = wmo_id_to_dwd(wmo_station_id)
-        station_name = place.find('kml:description', ns).text
-        try:
-            coords = place.find('kml:Point', ns).find('kml:coordinates', ns)
-            lon, lat, height = coords.text.split(',')
-        except AttributeError:
+        station_name = self._find_text(
+            place, 'kml:description', ns, allow_empty=True)
+        coords = place.find('kml:Point/kml:coordinates', ns)
+        if coords is None or coords.text is None:
             self.logger.warning(
                 "Ignoring station without coordinates, WMO ID '%s', DWD ID "
                 "'%s', name '%s'",
                 wmo_station_id, dwd_station_id, station_name)
             return []
+        lon, lat, height = coords.text.split(',')
         records = {'timestamp': timestamps}
         data = place.find('kml:ExtendedData', ns)
+        if data is None:
+            raise ValueError("Missing kml:ExtendedData element")
         for forecast in data.findall('dwd:Forecast', ns):
             param = forecast.attrib[f"{{{ns['dwd']}}}elementName"]
             try:
                 column = self.ELEMENTS[param]
             except KeyError:
                 continue
-            values_str = forecast.find('dwd:value', ns).text
+            values_str = self._find_text(forecast, 'dwd:value', ns)
             converter = getattr(self, f'parse_{column}', float)
             # XXX: Roughly 50 % of our parsing time is spent here
             records[column] = [
@@ -877,7 +896,10 @@ class RADOLANParser(Parser):
         if f'INT{self.INTERVAL:4d}' not in header:
             raise ValueError(
                 f"Expected interval INT{self.INTERVAL} in header")
-        offset_minutes = int(re.search(r'VV([ \d]{4})', header).group(1))
+        offset_match = re.search(r'VV([ \d]{4})', header)
+        if offset_match is None:
+            raise ValueError("Expected forecast offset VV in header")
+        offset_minutes = int(offset_match.group(1))
         offset = datetime.timedelta(minutes=offset_minutes)
         return product, timestamp, offset
 
@@ -1076,17 +1098,20 @@ class CAPParser(Parser):
                 self._parse_info(event, element)
                 element.clear()
             elif self._is_tag(element, 'cap:alert', self.ns):
-                event['id'] = element.find(
+                event['id'] = self._find_text(
+                    element,
                     'cap:identifier',
                     self.ns,
-                ).text.rsplit('.', 1)[0]
+                ).rsplit('.', 1)[0]
             elif self._is_tag(element, 'cap:status', self.ns):
-                event['status'] = element.text.lower()
+                event['status'] = self._text(
+                    element, 'cap:status').lower()
         self.sanitize_event(event)
         return event
 
     def _parse_info(self, event, element):
-        lang = element.find('cap:language', self.ns).text.split('-')[0]
+        lang = self._find_text(
+            element, 'cap:language', self.ns).split('-')[0]
         tag_map = self.TAG_MAP.get(lang, {})
         for tag, field in tag_map.items():
             e = element.find(f'cap:{tag}', self.ns)
@@ -1103,13 +1128,19 @@ class CAPParser(Parser):
 
     def _parse_event_code(self, element):
         for ec_element in element.findall('cap:eventCode', self.ns):
-            if ec_element.find('cap:valueName', self.ns).text == 'II':
-                return int(ec_element.find('cap:value', self.ns).text)
+            name = self._find_text(
+                ec_element, 'cap:valueName', self.ns, allow_empty=True)
+            if name == 'II':
+                return int(
+                    self._find_text(ec_element, 'cap:value', self.ns))
 
     def _parse_warn_cell_ids(self, element):
         for gc_element in element.findall('cap:area/cap:geocode', self.ns):
-            if gc_element.find('cap:valueName', self.ns).text == 'WARNCELLID':
-                yield int(gc_element.find('cap:value', self.ns).text)
+            name = self._find_text(
+                gc_element, 'cap:valueName', self.ns, allow_empty=True)
+            if name == 'WARNCELLID':
+                yield int(
+                    self._find_text(gc_element, 'cap:value', self.ns))
 
     def sanitize_event(self, event):
         for field in self.TOKEN_FIELDS:
